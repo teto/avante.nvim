@@ -51,7 +51,7 @@ function H.load_path()
       callback = load_path,
     })
   else
-    require("avante_lib").load()
+    return require("avante_lib").load()
   end
 end
 
@@ -399,7 +399,7 @@ function M.setup(opts)
 
   if M.did_setup then return end
 
-  H.load_path()
+  print("AVANTELOAD", H.load_path())
 
   require("avante.html2md").setup()
   require("avante.repo_map").setup()

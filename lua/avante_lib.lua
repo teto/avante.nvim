@@ -1,6 +1,6 @@
 local M = {}
 
-local function get_library_path()
+function M.get_library_path()
   local os_name = require("avante.utils").get_os_name()
   local ext = os_name == "linux" and "so" or (os_name == "darwin" and "dylib" or "dll")
   local dirname = string.sub(debug.getinfo(1).source, 2, #"/avante_lib.lua" * -1)
@@ -11,10 +11,12 @@ end
 local function trim_semicolon(s) return s:sub(-1) == ";" and s:sub(1, -2) or s end
 
 function M.load()
-  local library_path = get_library_path()
+  local library_path = M.get_library_path()
   if not string.find(package.cpath, library_path, 1, true) then
     package.cpath = trim_semicolon(package.cpath) .. ";" .. library_path
   end
+
+  return package.cpath
 end
 
 return M
