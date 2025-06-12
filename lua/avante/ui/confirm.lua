@@ -115,7 +115,7 @@ function M:open()
     border = {
       padding = { 0, 1 },
       text = { top = NuiText(" Confirmation ", Highlights.CONFIRM_TITLE) },
-      style = { " ", " ", " ", " ", " ", " ", " ", " " },
+      -- style = { " ", " ", " ", " ", " ", " ", " ", " " },
     },
     buf_options = {
       filetype = "AvanteConfirm",
