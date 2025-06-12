@@ -992,14 +992,19 @@ function Sidebar:render_input(ask)
   if not Utils.is_valid_container(self.input_container) then return end
 
   local header_text = string.format(
+    -- "HELLO MATT",
+
     "%s%s (" .. Config.mappings.sidebar.switch_windows .. ": switch focus)",
-    Utils.icon("󱜸 "),
+    Config.provider,
+    -- Utils.icon("󱜸 "),
     ask and "Ask" or "Chat with"
   )
 
   if self.code.selection ~= nil then
     header_text = string.format(
-      "%s%s (%d:%d) (<Tab>: switch focus)",
+      "HELLO MATT",
+      -- "%s   %s%s (%d:%d) (<Tab>: switch focus)",
+      Config.provider,
       Utils.icon("󱜸 "),
       ask and "Ask" or "Chat with",
       self.code.selection.range.start.lnum,
