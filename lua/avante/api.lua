@@ -139,9 +139,11 @@ function M.ask(opts)
     require("avante").open_sidebar(opts)
     if new_chat then sidebar:new_chat() end
     if opts.without_selection then
-      sidebar.code.selection = nil
-      sidebar.file_selector:reset()
-      if sidebar.selected_files_container then sidebar.selected_files_container:unmount() end
+      if sidebar then
+        sidebar.code.selection = nil
+        sidebar.file_selector:reset()
+        if sidebar.selected_files_container then sidebar.selected_files_container:unmount() end
+      end
     end
     if input == nil or input == "" then return true end
     vim.api.nvim_exec_autocmds("User", { pattern = "AvanteInputSubmitted", data = { request = input } })
