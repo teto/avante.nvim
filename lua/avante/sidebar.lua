@@ -32,7 +32,8 @@ local RESULT_BUF_HL_NAMESPACE = api.nvim_create_namespace("AVANTE_RESULT_BUF_HL"
 
 local PRIORITY = (vim.hl or vim.highlight).priorities.user
 
-local RESP_SEPARATOR = "-------"
+-- TODO this should be made configurable
+local RESP_SEPARATOR = "--------------"
 
 ---@class avante.Sidebar
 local Sidebar = {}
@@ -1601,7 +1602,7 @@ local function render_chat_record_prefix(timestamp, provider, model, request, se
   end
   if selected_code ~= nil then
     res = res
-      .. "\n\n- Selected code: "
+      .. "\n- Selected code: "
       .. "\n\n```"
       .. (selected_code.file_type or "")
       .. (selected_code.path and " " .. selected_code.path or "")

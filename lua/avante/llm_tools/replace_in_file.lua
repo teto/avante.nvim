@@ -465,6 +465,7 @@ function M.func(opts, on_log, on_complete, session_ctx)
         pcall(vim.api.nvim_del_augroup_by_id, augroup)
         if confirm then confirm:close() end
         if has_rejected then
+          print("REJECTION")
           on_complete(false, "User canceled")
           return
         end
