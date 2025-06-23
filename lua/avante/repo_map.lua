@@ -65,12 +65,16 @@ function RepoMap.get_repo_map(file_ext)
   -- Add safety check for file_ext
   if not file_ext then
     Utils.warn("No file extension available - please open a file first")
-    return {}
+    return false, {}
   end
+  print("get_repo_map for file extension", file_ext)
 
-  local repo_map = RepoMap._get_repo_map(file_ext) or {}
-  if not repo_map or next(repo_map) == nil then
+  local ok, repo_map = RepoMap._get_repo_map(file_ext) or {}
+
+  -- if not repo_map or next(repo_map) == nil then
+  if not ok then
     Utils.warn("The repo map is empty. Maybe do not support this language: " .. file_ext)
+    return "The repo map is empty. Maybe do not support this language: "
   end
   return repo_map
 end
@@ -82,7 +86,7 @@ function RepoMap._get_repo_map(file_ext)
     local buf_name = vim.api.nvim_buf_get_name(current_buf)
     if buf_name and buf_name ~= "" then file_ext = vim.fn.fnamemodify(buf_name, ":e") end
 
-    if not file_ext or file_ext == "" then return {} end
+    if not file_ext or file_ext == "" then return false, "no file ext" end
   end
 
   local project_root = Utils.root.get()
@@ -177,7 +181,7 @@ end
 
 function RepoMap.show()
   local file_ext = vim.fn.expand("%:e")
-  local repo_map = RepoMap.get_repo_map(file_ext)
+  local ok, repo_map = RepoMap.get_repo_map(file_ext)
 
   if not repo_map or next(repo_map) == nil then
     Utils.warn("The repo map is empty or not supported for this language: " .. file_ext)

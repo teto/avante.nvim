@@ -85,11 +85,15 @@ function M.build(opts)
   local pid
   local exit_code = { 0 }
 
+  vim.print(cmd)
   local ok, job_or_err = pcall(vim.system, cmd, { text = true }, function(obj)
     local stderr = obj.stderr and vim.split(obj.stderr, "\n") or {}
     local stdout = obj.stdout and vim.split(obj.stdout, "\n") or {}
-    if vim.tbl_contains(exit_code, obj.code) then
+    local res = vim.tbl_contains(exit_code, obj.code)
+    print("RES:", res)
+    if res then
       local output = stdout
+      vim.print(output)
       if #output == 0 then
         table.insert(output, "")
         Utils.debug("build output:", output)
