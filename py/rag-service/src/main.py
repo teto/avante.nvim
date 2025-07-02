@@ -479,6 +479,7 @@ with Path.open(config_file, "w") as f:
 chroma_collection = chroma_client.get_or_create_collection("documents")  # pyright: ignore
 vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
 storage_context = StorageContext.from_defaults(vector_store=vector_store)
+storage_context.persist(persist_dir="/home/teto/avante_storage")
 
 try:
     llm_extra = json.loads(rag_llm_extra) if rag_llm_extra is not None else {}
