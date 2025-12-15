@@ -1,8 +1,22 @@
 local M = {}
 
---- @deprecated You do not need to call this function anymore
+local function get_library_path()
+  local dirname = string.sub(debug.getinfo(1).source, 2, #"/avante_lib.lua" * -1)
+  return dirname .. ("../lua/?.%s"):format(ext)
+end
+
+---@type fun(s: string): string
+local function trim_semicolon(s) return s:sub(-1) == ";" and s:sub(1, -2) or s end
+
 function M.load()
-  -- noop
+  local os_name = require("avante.utils").get_os_name()
+  local library_path = get_library_path()
+  if os_name ~= "linux" then
+    ext = os_name == "darwin" and "dylib" or "dll"
+    if not string.find(package.cpath, library_path, 1, true) then
+      package.cpath = trim_semicolon(package.cpath) .. ";" .. library_path
+    end
+  end
 end
 
 return M
