@@ -1277,25 +1277,25 @@ For more information, see [Custom Providers](https://github.com/yetone/avante.nv
 Avante provides a RAG service, which is a tool for obtaining the required context for the AI to generate the codes. By default, it is not enabled. You can enable it this way:
 
 ```lua
-  rag_service = { -- RAG Service configuration
-    enabled = false, -- Enables the RAG service
-    host_mount = os.getenv("HOME"), -- Host mount path for the rag service (Docker will mount this path)
-    runner = "docker", -- Runner for the RAG service (can use docker or nix)
-    llm = { -- Language Model (LLM) configuration for RAG service
-      provider = "openai", -- LLM provider
-      endpoint = "https://api.openai.com/v1", -- LLM API endpoint
-      api_key = "OPENAI_API_KEY", -- Environment variable name for the LLM API key
-      model = "gpt-4o-mini", -- LLM model name
-      extra = nil, -- Additional configuration options for LLM
+  rag_service = { -- rag service configuration
+    enabled = false, -- enables the rag service
+    host_mount = os.getenv("home"), -- host mount path for the rag service (docker will mount this path)
+    runner = "docker", -- runner for the rag service (can use docker or nix)
+    llm = { -- language model (llm) configuration for rag service
+      provider = "openai", -- llm provider
+      endpoint = "https://api.openai.com/v1", -- llm api endpoint
+      api_key = "openai_api_key", -- environment variable name for the llm api key
+      model = "gpt-4o-mini", -- llm model name
+      extra = nil, -- additional configuration options for llm
     },
-    embed = { -- Embedding model configuration for RAG service
-      provider = "openai", -- Embedding provider
-      endpoint = "https://api.openai.com/v1", -- Embedding API endpoint
-      api_key = "OPENAI_API_KEY", -- Environment variable name for the embedding API key
-      model = "text-embedding-3-large", -- Embedding model name
-      extra = nil, -- Additional configuration options for the embedding model
+    embed = { -- embedding model configuration for rag service
+      provider = "openai", -- embedding provider
+      endpoint = "https://api.openai.com/v1", -- embedding api endpoint
+      api_key = "openai_api_key", -- environment variable name for the embedding api key
+      model = "text-embedding-3-large", -- embedding model name
+      extra = nil, -- additional configuration options for the embedding model
     },
-    docker_extra_args = "", -- Extra arguments to pass to the docker command
+    docker_extra_args = "", -- extra arguments to pass to the docker command
   },
 ```
 

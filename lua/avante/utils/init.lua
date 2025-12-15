@@ -224,7 +224,7 @@ function M.safe_keymap_set(mode, lhs, rhs, opts)
 
   ok, H = pcall(require, "lazy.core.handler")
   if not ok then
-    M.debug("lazy.nvim is not available. Avante will use vim.keymap.set")
+    -- M.debug("lazy.nvim is not available. Avante will use vim.keymap.set")
     vim.keymap.set(mode, lhs, rhs, opts)
     return
   end
