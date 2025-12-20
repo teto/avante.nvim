@@ -700,6 +700,19 @@ M._defaults = {
       },
     },
     ---@type AvanteSupportedProvider
+    llamacpp = {
+      __inherited_from = "openai",
+      endpoint = "http://127.0.0.1:8080",
+      timeout = 30000, -- Timeout in milliseconds
+      api_key_name = '', -- by default no key
+      -- support_previous_response_id = true, -- OpenAI Response API supports previous_response_id for stateful conversations
+      extra_request_body = {
+        options = {
+          keep_alive = "5m",
+        },
+      },
+    },
+    ---@type AvanteSupportedProvider
     ollama = {
       endpoint = "http://127.0.0.1:11434",
       timeout = 30000, -- Timeout in milliseconds
