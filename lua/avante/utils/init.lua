@@ -10,7 +10,7 @@ local log = require("avante.utils.log")
 local LRUCache = require("avante.utils.lru_cache")
 local diff2search_replace = require("avante.utils.diff2search_replace")
 
----@class avante.utils: LazyUtilCore
+---@class LazyUtilCore
 ---@field tokens avante.utils.tokens
 ---@field root avante.utils.root
 ---@field file avante.utils.file

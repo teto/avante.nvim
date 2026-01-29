@@ -1344,6 +1344,7 @@ function M.setup(opts)
     "force",
     M._defaults,
     opts,
+    ---@diagnostic disable-next-line: annotation-usage-error
     ---@type avante.Config
     {
       behaviour = {
