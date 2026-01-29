@@ -40,6 +40,7 @@ function History.get_history_dir(bufnr)
         buf = bufnr,
       }),
     }
+    Utils.debug("Saving history to ", metadata_filepath)
     metadata_filepath:write(vim.json.encode(metadata), "w")
   end
   return history_dir
@@ -364,11 +365,13 @@ function Prompt.get_templates_dir(project_root)
               local content = file:read()
 
               if not content:match("{%% block extra_prompt %%}[%s,\\n]*{%% endblock %%}") then
+                Utils.debug("Missing 'extra_prompt' block to base.avanterules. Adding it...")
                 file:write("{% block extra_prompt %}\n", "a")
                 file:write("{% endblock %}\n", "a")
               end
 
               if not content:match("{%% block custom_prompt %%}[%s,\\n]*{%% endblock %%}") then
+                Utils.debug("Missing 'custom_prompt' block to base.avanterules. Adding it...")
                 file:write("{% block custom_prompt %}\n", "a")
                 file:write("{% endblock %}", "a")
               end
