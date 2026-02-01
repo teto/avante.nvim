@@ -1375,11 +1375,4 @@ function M.process_tool_use(tools, tool_use, opts)
   return handle_result(result, err)
 end
 
----@param tool_use AvanteLLMToolUse
----@return string
-function M.stringify_tool_use(tool_use)
-  local s = string.format("`%s`", tool_use.name)
-  return s
-end
-
 return M
