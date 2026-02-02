@@ -388,6 +388,8 @@ function M:parse_messages(opts)
         table.insert(final_messages, { role = self.role_map["assistant"], content = "Ok, I understand." })
       end
     else
+      -- mistral doesnt accept a "user" role after "tool" so we insert a fake one
+      -- https://github.com/yetone/avante.nvim/pull/2695
       if role == "user" and prev_role == "tool" and M.is_mistral(provider_conf.endpoint) then
         table.insert(final_messages, { role = self.role_map["assistant"], content = "Ok, I understand." })
       end
