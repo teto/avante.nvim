@@ -251,6 +251,7 @@ function M:parse_messages(opts)
           end
         elseif item.type == "tool_use" and not use_ReAct_prompt then
           has_tool_use = true
+          Utils.debug("Parsed id ", item.id)
           table.insert(tool_calls, {
             id = item.id,
             type = "function",
@@ -343,6 +344,8 @@ function M:parse_messages(opts)
                 output = tool_result.content or "",
               })
             else
+              -- tool_result.tool_call_id
+              Utils.debug("Inserting tool_call_id ", tool_result.tool_call_id)
               table.insert(
                 messages,
                 { role = "tool", tool_call_id = tool_result.tool_call_id, content = tool_result.content or "" }
@@ -399,6 +402,7 @@ function M:parse_messages(opts)
     table.insert(final_messages, message)
   end)
 
+  -- Utils.debug(final_messages)
   return final_messages
 end
 
@@ -481,8 +485,18 @@ function M:add_text_message(ctx, text, state, opts)
         end
       end
       if next(input) ~= nil then
+        -- TODO if it's mistral, M.is_mistral(provider_conf.endpoint)
         local msg_uuid = ctx.content_uuid .. "-" .. idx
+        vim.print("context", ctx)
+        vim.print(opts)
+        -- if M.is_mistral(provider_conf.endpoint) then
+        --   -- mistral accepts only 9 letter long ids, starting with letter
+        --   -- truncate
+        --   local truncated = string.sub(original_string, 1, 9)
+        --   ctx.content_uuid .. "-" .. idx
+        -- end
         local tool_use_id = msg_uuid
+        tool_use_id = string.sub(msg_uuid, 1, 9)
         local tool_message_state = item.partial and "generating" or "generated"
         local msg_ = HistoryMessage:new("assistant", {
           type = "tool_use",

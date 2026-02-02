@@ -130,7 +130,10 @@ function M.generate_todos(user_input, cb)
       on_messages_add = function(msgs)
         msgs = vim.islist(msgs) and msgs or { msgs }
         for _, msg in ipairs(msgs) do
-          if not msg.uuid then msg.uuid = Utils.uuid() end
+          if not msg.uuid then
+            Utils.debug("Missing uuid ")
+            msg.uuid = Utils.uuid()
+          end
           local idx = nil
           for i, m in ipairs(history_messages) do
             if m.uuid == msg.uuid then
@@ -597,6 +600,8 @@ function M.curl(opts)
     -- For regular JSON requests, encode as JSON and write to file
     local json_content = vim.json.encode(spec.body)
     fn.writefile(vim.split(json_content, "\n"), curl_body_file)
+    -- vim.print(curl_body_file, json_content)
+    Utils.debug("Wrote curl body request to ", curl_body_file)
     curl_options = {
       headers = spec.headers,
       proxy = spec.proxy,
@@ -606,7 +611,7 @@ function M.curl(opts)
     }
   end
 
-  Utils.debug("curl request body file:", curl_body_file)
+  -- Utils.debug("curl request body file:", curl_body_file)
   Utils.debug("curl response body file:", resp_body_file)
 
   local function cleanup()
@@ -1999,6 +2004,7 @@ function M._stream(opts)
         return handle_next_tool_use(pending_tools, pending_tool_use_messages, 1, {}, stop_opts.streaming_tool_use)
       end
       if stop_opts.reason == "rate_limit" then
+        Utils.debug("stop_opts.reason == 'rate_limit'")
         local message = opts.on_messages_add
           and History.Message:new(
             "assistant",

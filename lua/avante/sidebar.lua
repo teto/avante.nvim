@@ -2785,6 +2785,7 @@ function Sidebar:submit_input()
   if not Utils.is_valid_container(self.containers.input) then return end
   local lines = api.nvim_buf_get_lines(self.containers.input.bufnr, 0, -1, false)
   local request = table.concat(lines, "\n")
+  Utils.info(request)
   if request == "" then return end
   api.nvim_buf_set_lines(self.containers.input.bufnr, 0, -1, false, {})
   api.nvim_win_set_cursor(self.containers.input.winid, { 1, 0 })
