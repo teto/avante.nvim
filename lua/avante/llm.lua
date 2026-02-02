@@ -700,6 +700,11 @@ function M.curl(opts)
           local retry_after = 10
           if headers_map["retry-after"] then retry_after = tonumber(headers_map["retry-after"]) or 10 end
           if result.status == 429 then
+            local months_remaining_tokens = headers_map["x-ratelimit-remaining-tokens-month"] or "unknown"
+            Utils.debug("Remaining month allowance:", months_remaining_tokens)
+            if months_remaining_tokens == 0 then
+              vim.notify("reached month limit quota")
+            end
             handler_opts.on_stop({ reason = "rate_limit", retry_after = retry_after })
             return
           end
