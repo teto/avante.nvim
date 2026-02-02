@@ -472,7 +472,8 @@ function M.debug(...)
   log.debug(formated_args)
   -- print only on debug (todo: spellfix format(t)ed_args)
   if not require("avante.config").debug then return end
-  print(unpack(formated_args))
+  -- it's already logged to file
+  -- print(unpack(formated_args))
 end
 
 function M.tbl_indexof(tbl, value)
