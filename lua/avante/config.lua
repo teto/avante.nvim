@@ -333,6 +333,8 @@ M.instructions_file = "avante.md"
 ---@field ask_opts AskOptions
 
 M._defaults = {
+  ---@type boolean
+  -- enable to save payloads from queries and answers
   debug = false,
   log_level = vim.log.levels.WARN,
   ---@alias avante.Mode "agentic" | "legacy"
