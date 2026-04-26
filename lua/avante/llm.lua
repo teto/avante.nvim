@@ -1644,12 +1644,12 @@ function M._continue_stream_acp(opts, acp_client, session_id)
     if cancelled then return end
     vim.schedule(function() api.nvim_del_autocmd(stop_cmd_id) end)
     if err_ then
-      -- ACP-specific session recovery: Check for session not found error
-      -- Check for session recovery conditions
+      -- ACP-specific session recovery: Check for session not found error Check for session recovery conditions
       local recovery_config = Config.session_recovery or {}
       local recovery_enabled = recovery_config.enabled ~= false -- Default enabled unless explicitly disabled
 
       local is_session_not_found = false
+      vim.print(err_)
       if err_.code == -32603 and err_.data and err_.data.details then
         local details = err_.data.details
         -- Support both Claude format ("Session not found") and Gemini-CLI format ("Session not found: session-id")
