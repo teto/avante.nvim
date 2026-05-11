@@ -1101,32 +1101,32 @@ function ACPClient:create_resource_content(resource, annotations)
   }
 end
 
----Helper function: Create text resource
----@param uri string
----@param text string
----@param mime_type string?
----@return table
-function ACPClient:create_text_resource(uri, text, mime_type)
-  return {
-    uri = uri,
-    text = text,
-    mimeType = mime_type,
-  }
-end
-
----Helper function: Create binary resource
----@param uri string
----@param blob string Base64 encoded binary data
----@param mime_type string?
----@return table
-function ACPClient:create_blob_resource(uri, blob, mime_type)
-  return {
-    uri = uri,
-    blob = blob,
-    mimeType = mime_type,
-  }
-end
-
+-- ---Helper function: Create text resource
+-- ---@param uri string
+-- ---@param text string
+-- ---@param mime_type string?
+-- ---@return table
+-- function ACPClient:create_text_resource(uri, text, mime_type)
+--   return {
+--     uri = uri,
+--     text = text,
+--     mimeType = mime_type,
+--   }
+-- end
+--
+-- ---Helper function: Create binary resource
+-- ---@param uri string
+-- ---@param blob string Base64 encoded binary data
+-- ---@param mime_type string?
+-- ---@return table
+-- function ACPClient:create_blob_resource(uri, blob, mime_type)
+--   return {
+--     uri = uri,
+--     blob = blob,
+--     mimeType = mime_type,
+--   }
+-- end
+--
 ---Convenience method: Check if client is ready
 ---@return boolean
 function ACPClient:is_ready() return self.state == "ready" end
