@@ -235,7 +235,7 @@ ACPClient.ERROR_CODES = {
 
 ---@class ACPConfig
 ---@field transport_type "stdio" | "websocket" | "tcp"
----@field command? string Command to spawn agent (for stdio)
+---@field command string Command to spawn agent (for stdio)
 ---@field args? string[] Arguments for agent command
 ---@field env? table Environment variables
 ---@field host? string Host for tcp/websocket
