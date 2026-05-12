@@ -115,6 +115,7 @@ function Selection:close_editing_input()
 end
 
 function Selection:submit_input(input)
+  Utils.debug("Submitting input", type(input))
   if not input then
     Utils.error("No input provided", { once = true, title = "Avante" })
     return
@@ -207,6 +208,8 @@ function Selection:submit_input(input)
   local selected_code = nil
 
   if self.selection then
+    Utils.debug("self.selection set, computing selected code")
+
     selected_code = {
       content = self.selection.content,
       file_type = self.selection.filetype,
@@ -216,6 +219,7 @@ function Selection:submit_input(input)
 
   local instructions = "Do not call any tools and just response the request: " .. input
 
+  Utils.debug("selected_code=", selected_code)
   Llm.stream({
     ask = true,
     project_context = vim.json.encode(project_context),
@@ -228,6 +232,7 @@ function Selection:submit_input(input)
     on_start = on_start,
     on_chunk = on_chunk,
     on_stop = on_stop,
+    on_tool_log = function () Utils.debug("llm.stream on_tool_log") end
   })
 end
 
