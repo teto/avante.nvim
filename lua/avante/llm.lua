@@ -446,7 +446,9 @@ function M.generate_prompts(opts)
     :filter(function(msg) return type(msg.content) ~= "string" or msg.content ~= "" end)
     :totable()
 
+    log.debug("instructions: "..tostring(opts.instructions))
   if opts.instructions ~= nil and opts.instructions ~= "" then
+    log.debug("Extending messages with INSTRUCTION")
     messages = vim.list_extend(messages, { { role = "user", content = opts.instructions } })
   end
 
@@ -1125,11 +1127,11 @@ function M._stream_acp(opts)
 
                 local abs_path = Utils.is_absolute_path(location.path) and location.path
                   or vim.fs.joinpath(Utils.get_project_root(), location.path)
-                local bufnr = vim.fn.bufnr(abs_path, true)
+                local bufnr = fn.bufnr(abs_path, true)
 
                 if not bufnr or bufnr == -1 then return end
 
-                if not api.nvim_buf_is_loaded(bufnr) then pcall(vim.fn.bufload, bufnr) end
+                if not api.nvim_buf_is_loaded(bufnr) then pcall(fn.bufload, bufnr) end
 
                 local ok = pcall(api.nvim_win_set_buf, code_winid, bufnr)
                 if not ok then return end
@@ -1612,6 +1614,19 @@ function M._continue_stream_acp(opts, acp_client, session_id)
       end
     end
   end
+
+  -- if opts.instructions ~= nil and opts.instructions ~= "" then
+  --   local has_instructions = vim.iter(prompt):find(function(item)
+  --     return type(item) == "table" and item.type == "text" and item.text == opts.instructions
+  --   end) ~= nil
+  --   if not has_instructions then
+  --     table.insert(prompt, {
+  --       type = "text",
+  --       text = opts.instructions,
+  --     })
+  --   end
+  -- end
+
   local cancelled = false
   local stop_cmd_id = api.nvim_create_autocmd("User", {
     group = group,
