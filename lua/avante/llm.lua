@@ -1397,6 +1397,7 @@ function M._continue_stream_acp(opts, acp_client, session_id)
   local prompt = {}
   local donot_use_builtin_system_prompt = opts.history_messages ~= nil and #opts.history_messages > 0
   if donot_use_builtin_system_prompt then
+    Utils.debug("Not using builtin system prompt")
     if opts.selected_filepaths then
       for _, filepath in ipairs(opts.selected_filepaths) do
         local abs_path = Utils.to_absolute_path(filepath)
@@ -1406,6 +1407,8 @@ function M._continue_stream_acp(opts, acp_client, session_id)
       end
     end
     if opts.selected_code then
+      Utils.debug("Adding selected code")
+
       local prompt_item = {
         type = "text",
         text = string.format(
@@ -1628,6 +1631,8 @@ function M._continue_stream_acp(opts, acp_client, session_id)
       opts.on_stop({ reason = "cancelled" })
     end,
   })
+  log.debug("Prompt length ", #prompt)
+  vim.print("Prompt ", prompt)
   acp_client:send_prompt(session_id, prompt, function(_, err_)
     if cancelled then return end
     vim.schedule(function() api.nvim_del_autocmd(stop_cmd_id) end)
@@ -2142,6 +2147,8 @@ end
 
 ---@param opts AvanteLLMStreamOptions
 function M.stream(opts)
+  Utils.debug("Starting stream")
+  vim.print(opts)
   local is_completed = false
   if opts.on_tool_log ~= nil then
     local original_on_tool_log = opts.on_tool_log
