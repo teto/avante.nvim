@@ -1024,7 +1024,7 @@ end
 
 ---Send prompt
 ---@param session_id string
----@param prompt table[]
+---@param prompt string[]
 ---@param callback fun(result: table|nil, err: avante.acp.ACPError|nil)
 function ACPClient:send_prompt(session_id, prompt, callback)
   local params = {
