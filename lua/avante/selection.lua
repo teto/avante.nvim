@@ -134,7 +134,7 @@ function Selection:submit_input(input)
   local start_line = self.selection.range.start.lnum
   local finish_line = self.selection.range.finish.lnum
 
-  local original_first_line_indentation = Utils.get_indentation(code_lines[self.selection.range.start.lnum])
+  local original_first_line_indentation = Utils.get_indentation(code_lines[start_line])
 
   local need_prepend_indentation = false
 
@@ -217,7 +217,8 @@ function Selection:submit_input(input)
     }
   end
 
-  local instructions = "Do not call any tools and just response the request: " .. input
+  -- local instructions = "Do not call any tools and just response the request: " .. input
+  local instructions = input
 
   Utils.debug("selected_code=", selected_code)
   Llm.stream({

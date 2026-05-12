@@ -446,7 +446,9 @@ function M.generate_prompts(opts)
     :filter(function(msg) return type(msg.content) ~= "string" or msg.content ~= "" end)
     :totable()
 
+    log.debug("instructions: "..tostring(opts.instructions))
   if opts.instructions ~= nil and opts.instructions ~= "" then
+    log.debug("Extending messages with INSTRUCTION")
     messages = vim.list_extend(messages, { { role = "user", content = opts.instructions } })
   end
 
@@ -1636,6 +1638,19 @@ function M._continue_stream_acp(opts, acp_client, session_id)
       end
     end
   end
+
+  -- if opts.instructions ~= nil and opts.instructions ~= "" then
+  --   local has_instructions = vim.iter(prompt):find(function(item)
+  --     return type(item) == "table" and item.type == "text" and item.text == opts.instructions
+  --   end) ~= nil
+  --   if not has_instructions then
+  --     table.insert(prompt, {
+  --       type = "text",
+  --       text = opts.instructions,
+  --     })
+  --   end
+  -- end
+
   local cancelled = false
   local stop_cmd_id = api.nvim_create_autocmd("User", {
     group = group,
