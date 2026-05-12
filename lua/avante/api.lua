@@ -185,6 +185,7 @@ function M.ask(opts)
   return ask()
 end
 
+---Act on visual selection
 ---@param request? string
 ---@param line1? integer
 ---@param line2? integer
