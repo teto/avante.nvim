@@ -74,7 +74,7 @@ function M.func(input, opts)
 
   local abs_path = Helpers.get_abs_path(input.path)
   if not Helpers.has_permission_to_access(abs_path) then return "", "No permission to access path: " .. abs_path end
-  if not Path:new(abs_path):exists() then return "", "No such file or directory: " .. abs_path end
+  if vim.uv.fs_stat(abs_path) == nil then return "", "No such file or directory: " .. abs_path end
 
   ---check if any search cmd is available
   local search_cmd = vim.fn.exepath("rg")

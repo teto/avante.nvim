@@ -26,6 +26,10 @@ local token_endpoint = "https://console.anthropic.com/v1/oauth/token"
 local client_id = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
 local claude_code_spoof_prompt = "You are Claude Code, Anthropic's official CLI for Claude."
 
+---@param path Path|string
+---@return boolean
+local function path_exists(path) return vim.uv.fs_stat(tostring(path)) ~= nil end
+
 ---@private
 ---@class AvanteAnthropicState
 ---@field claude_token ClaudeAuthToken?
@@ -73,7 +77,7 @@ local function try_acquire_claude_timer_lock()
   Path:new(tmp_lockfile):write(tostring(vim.fn.getpid()), "w")
 
   -- Check existing lock
-  if lockfile:exists() then
+  if path_exists(lockfile) then
     local content = lockfile:read()
     local pid = tonumber(content)
     if pid and is_process_running(pid) then
@@ -119,7 +123,7 @@ function M.setup_claude_file_watcher()
     {},
     vim.schedule_wrap(function()
       -- Reload token from file
-      if claude_token_file:exists() then
+      if path_exists(claude_token_file) then
         local ok, token = pcall(vim.json.decode, claude_token_file:read())
         if ok then M.state.claude_token = token end
       end
@@ -161,7 +165,7 @@ function M.setup()
     claude_token = nil,
   } end
 
-  if claude_token_file:exists() then
+  if path_exists(claude_token_file) then
     local ok, token = pcall(vim.json.decode, claude_token_file:read())
     -- Note: We don't check expiration here because refresh logic needs the refresh_token field
     -- from the existing token. Expired tokens will be refreshed automatically on next use.
@@ -912,7 +916,7 @@ function M.cleanup_claude()
 
     -- Remove lockfile if we were the manager
     local lockfile = Path:new(lockfile_path)
-    if lockfile:exists() then
+    if path_exists(lockfile) then
       local content = lockfile:read()
       local pid = tonumber(content)
       if pid and pid == vim.fn.getpid() then vim.fs.rm(tostring(lockfile)) end

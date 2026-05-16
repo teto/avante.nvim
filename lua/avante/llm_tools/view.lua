@@ -94,7 +94,7 @@ function M.func(input, opts)
   if on_log then on_log("path: " .. input.path) end
   local abs_path = Helpers.get_abs_path(input.path)
   if not Helpers.has_permission_to_access(abs_path) then return false, "No permission to access path: " .. abs_path end
-  if not Path:new(abs_path):exists() then return false, "Path not found: " .. abs_path end
+  if vim.uv.fs_stat(abs_path) == nil then return false, "Path not found: " .. abs_path end
   if Path:new(abs_path):is_dir() then return false, "Path is a directory: " .. abs_path end
   local file = io.open(abs_path, "r")
   if not file then return false, "file not found: " .. abs_path end

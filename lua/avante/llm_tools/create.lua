@@ -60,7 +60,7 @@ function M.func(input, opts)
   local abs_path = Helpers.get_abs_path(input.path)
   if not Helpers.has_permission_to_access(abs_path) then return false, "No permission to access path: " .. abs_path end
   if input.file_text == nil then return false, "file_text not provided" end
-  if Path:new(abs_path):exists() then return false, "File already exists: " .. abs_path end
+  if vim.uv.fs_stat(abs_path) ~= nil then return false, "File already exists: " .. abs_path end
   local lines = vim.split(input.file_text, "\n")
   if #lines == 1 and input.file_text:match("\\n") then
     local text = Utils.trim_escapes(input.file_text)

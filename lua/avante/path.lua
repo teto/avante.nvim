@@ -10,6 +10,10 @@ local Config = require("avante.config")
 ---@field data_path Path
 local P = {}
 
+---@param path Path|string
+---@return boolean
+local function path_exists(path) return vim.uv.fs_stat(tostring(path)) ~= nil end
+
 ---@param bufnr integer | nil
 ---@return string dirname
 local function generate_project_dirname_in_storage(bufnr)
@@ -31,7 +35,7 @@ local History = {}
 function History.get_history_dir(bufnr)
   local dirname = generate_project_dirname_in_storage(bufnr)
   local history_dir = Path:new(Config.history.storage_path):joinpath(dirname):joinpath("history")
-  if not history_dir:exists() then
+  if not path_exists(history_dir) then
     history_dir:mkdir({ parents = true })
 
     local metadata_filepath = history_dir:joinpath("metadata.json")
@@ -97,7 +101,7 @@ function History.get_latest_filename(bufnr, new)
   local history_dir = History.get_history_dir(bufnr)
   local filename
   local metadata_filepath = History.get_metadata_filepath(bufnr)
-  if metadata_filepath:exists() and not new then
+  if path_exists(metadata_filepath) and not new then
     local metadata_content = metadata_filepath:read()
     local metadata = vim.json.decode(metadata_content)
     filename = metadata.latest_filename
@@ -114,7 +118,7 @@ end
 function History.save_latest_filename(bufnr, filename)
   local metadata_filepath = History.get_metadata_filepath(bufnr)
   local metadata = {}
-  if metadata_filepath:exists() then
+  if path_exists(metadata_filepath) then
     local metadata_content = metadata_filepath:read()
     metadata = vim.json.decode(metadata_content)
   end
@@ -144,7 +148,7 @@ end
 ---@param filepath Path
 ---@return avante.ChatHistory|nil
 function History.from_file(filepath)
-  if filepath:exists() then
+  if path_exists(filepath) then
     local content = filepath:read()
     if content ~= nil then
       local decode_ok, history = pcall(vim.json.decode, content)
@@ -187,7 +191,7 @@ end
 ---@param filename string
 function History.delete(bufnr, filename)
   local history_filepath = History.get_filepath(bufnr, filename)
-  if history_filepath:exists() then
+  if path_exists(history_filepath) then
     local was_latest = (filename == History.get_latest_filename(bufnr, false))
     vim.fs.rm(tostring(history_filepath))
 
@@ -198,7 +202,7 @@ function History.delete(bufnr, filename)
       else
         -- No histories left, clear the latest_filename from metadata
         local metadata_filepath = History.get_metadata_filepath(bufnr)
-        if metadata_filepath:exists() then
+        if path_exists(metadata_filepath) then
           local metadata_content = metadata_filepath:read()
           local metadata = vim.json.decode(metadata_content)
           metadata.latest_filename = nil -- Or "", depending on desired behavior for an empty latest
@@ -216,7 +220,7 @@ P.history = History
 ---@return table[] List of projects with their information
 function P.list_projects()
   local projects_dir = Path:new(Config.history.storage_path):joinpath("projects")
-  if not projects_dir:exists() then return {} end
+  if not path_exists(projects_dir) then return {} end
 
   local projects = {}
   local dirs = Scan.scan_dir(tostring(projects_dir), { depth = 1, add_dirs = true, only_dirs = true })
@@ -227,7 +231,7 @@ function P.list_projects()
 
     local metadata_file = history_dir:joinpath("metadata.json")
     local project_root = ""
-    if metadata_file:exists() then
+    if path_exists(metadata_file) then
       local content = metadata_file:read()
       if content then
         local metadata = vim.json.decode(content)
@@ -240,7 +244,7 @@ function P.list_projects()
 
     -- Count history files
     local history_count = 0
-    if history_dir:exists() then
+    if path_exists(history_dir) then
       local history_files = vim.fn.glob(tostring(history_dir:joinpath("*.json")), true, true)
       for _, file in ipairs(history_files) do
         if not file:match("metadata.json") then history_count = history_count + 1 end
@@ -300,7 +304,7 @@ function Prompt.get_templates_dir(project_root)
   ---@cast directory Path
   ---@type Path
   local cache_prompt_dir = P.cache_path:joinpath(directory)
-  if not cache_prompt_dir:exists() then cache_prompt_dir:mkdir({ parents = true }) end
+  if not path_exists(cache_prompt_dir) then cache_prompt_dir:mkdir({ parents = true }) end
 
   local function find_rules(dir)
     if not dir then return end
@@ -351,7 +355,7 @@ function Prompt.get_templates_dir(project_root)
 
     if override_prompt_dir then
       local user_template_path = Path:new(override_prompt_dir)
-      if user_template_path:exists() then
+      if path_exists(user_template_path) then
         local user_scanner =
           Scan.scan_dir(vim.fs.abspath(tostring(user_template_path)), { depth = 1, add_dirs = false })
         for _, entry in ipairs(user_scanner) do
@@ -440,7 +444,7 @@ end
 
 function RepoMap.load(project_root, ext)
   local file = RepoMap.get(project_root, ext)
-  if file:exists() then
+  if path_exists(file) then
     local content = file:read()
     return content ~= nil and vim.json.decode(content) or {}
   end
@@ -463,15 +467,15 @@ end
 
 function P.setup()
   local history_path = Path:new(Config.history.storage_path)
-  if not history_path:exists() then history_path:mkdir({ parents = true }) end
+  if not path_exists(history_path) then history_path:mkdir({ parents = true }) end
   P.history_path = history_path
 
   local cache_path = Path:new(vim.fs.joinpath(vim.fn.stdpath("cache"), "avante"))
-  if not cache_path:exists() then cache_path:mkdir({ parents = true }) end
+  if not path_exists(cache_path) then cache_path:mkdir({ parents = true }) end
   P.cache_path = cache_path
 
   local data_path = Path:new(vim.fs.joinpath(vim.fn.stdpath("data"), "avante"))
-  if not data_path:exists() then data_path:mkdir({ parents = true }) end
+  if not path_exists(data_path) then data_path:mkdir({ parents = true }) end
   P.data_path = data_path
 
   vim.defer_fn(P._init_templates_lib, 1000)
@@ -483,8 +487,8 @@ function P.clear()
   vim.fs.rm(tostring(P.cache_path), { recursive = true })
   vim.fs.rm(tostring(P.history_path), { recursive = true })
 
-  if not P.cache_path:exists() then P.cache_path:mkdir({ parents = true }) end
-  if not P.history_path:exists() then P.history_path:mkdir({ parents = true }) end
+  if not path_exists(P.cache_path) then P.cache_path:mkdir({ parents = true }) end
+  if not path_exists(P.history_path) then P.history_path:mkdir({ parents = true }) end
 end
 
 return P

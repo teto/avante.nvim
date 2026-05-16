@@ -22,7 +22,7 @@ function M.get_rag_service_url() return string.format("http://localhost:%d", M.g
 
 function M.get_data_path()
   local p = Path:new(vim.fn.stdpath("data")):joinpath("avante/rag_service")
-  if not p:exists() then p:mkdir({ parents = true }) end
+  if vim.uv.fs_stat(tostring(p)) == nil then p:mkdir({ parents = true }) end
   return p
 end
 

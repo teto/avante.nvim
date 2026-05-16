@@ -96,7 +96,7 @@ describe("generate_prompts", function()
   after_each(function()
     -- Clean up created test files and directories
     local mock_dir = PPath:new("tests", project_root)
-    if mock_dir:exists() then vim.fs.rm(tostring(mock_dir), { recursive = true }) end
+    if vim.uv.fs_stat(tostring(mock_dir)) ~= nil then vim.fs.rm(tostring(mock_dir), { recursive = true }) end
   end)
 
   it("should include instruction file content when the file exists", function()
@@ -107,7 +107,7 @@ describe("generate_prompts", function()
 
   it("should not modify instructions if the file does not exist", function()
     local mock_file = PPath:new("tests", project_root, "avante.md")
-    if mock_file:exists() then vim.fs.rm(tostring(mock_file)) end
+    if vim.uv.fs_stat(tostring(mock_file)) ~= nil then vim.fs.rm(tostring(mock_file)) end
 
     local opts = {}
     llm.generate_prompts(opts)

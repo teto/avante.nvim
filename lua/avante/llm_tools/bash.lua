@@ -224,7 +224,7 @@ function M.func(input, opts)
 
   local abs_path = Helpers.get_abs_path(input.path)
   if not Helpers.has_permission_to_access(abs_path) then return false, "No permission to access path: " .. abs_path end
-  if not Path:new(abs_path):exists() then return false, "Path not found: " .. abs_path end
+  if vim.uv.fs_stat(abs_path) == nil then return false, "Path not found: " .. abs_path end
   if not input.command then return false, "Command is required" end
   if opts.on_log then opts.on_log("command: " .. input.command) end
 

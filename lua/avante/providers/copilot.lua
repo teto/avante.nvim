@@ -40,6 +40,10 @@ local M = {}
 local copilot_path = vim.fn.stdpath("data") .. "/avante/github-copilot.json"
 local lockfile_path = vim.fn.stdpath("data") .. "/avante/copilot-timer.lock"
 
+---@param path Path|string
+---@return boolean
+local function path_exists(path) return vim.uv.fs_stat(tostring(path)) ~= nil end
+
 -- Lockfile management
 local function is_process_running(pid)
   local result = vim.uv.kill(pid, 0)
@@ -58,7 +62,7 @@ local function try_acquire_timer_lock()
   Path:new(tmp_lockfile):write(tostring(vim.fn.getpid()), "w")
 
   -- Check existing lock
-  if lockfile:exists() then
+  if path_exists(lockfile) then
     local content = lockfile:read()
     local pid = tonumber(content)
     if pid and is_process_running(pid) then
@@ -117,7 +121,7 @@ function H.get_oauth_token()
   ---@type Path[]
   local paths = vim.iter({ "hosts.json", "apps.json" }):fold({}, function(acc, path)
     local yason = Path:new(config_dir):joinpath("github-copilot", path)
-    if yason:exists() then table.insert(acc, yason) end
+    if path_exists(yason) then table.insert(acc, yason) end
     return acc
   end)
   if #paths == 0 then error("You must setup copilot with either copilot.lua or copilot.vim", 2) end
@@ -440,7 +444,7 @@ function M.setup_file_watcher()
     {},
     vim.schedule_wrap(function()
       -- Reload token from file
-      if copilot_token_file:exists() then
+      if path_exists(copilot_token_file) then
         local ok, token = pcall(vim.json.decode, copilot_token_file:read())
         if ok then M.state.github_token = token end
       end
@@ -464,7 +468,7 @@ function M.setup()
   } end
 
   -- Load and validate existing token
-  if copilot_token_file:exists() then
+  if path_exists(copilot_token_file) then
     local ok, token = pcall(vim.json.decode, copilot_token_file:read())
     if ok and token.expires_at and token.expires_at > math.floor(os.time()) then M.state.github_token = token end
   end
@@ -495,7 +499,7 @@ function M.cleanup()
 
     -- Remove lockfile if we were the manager
     local lockfile = Path:new(lockfile_path)
-    if lockfile:exists() then
+    if path_exists(lockfile) then
       local content = lockfile:read()
       local pid = tonumber(content)
       if pid and pid == vim.fn.getpid() then vim.fs.rm(tostring(lockfile)) end
