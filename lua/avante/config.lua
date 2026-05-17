@@ -1235,6 +1235,13 @@ function M.setup(opts)
   opts = vim.tbl_deep_extend("force", global_opts, opts or {})
   local provider_configured = opts.provider ~= nil
 
+  if vim.tbl_get(opts, "windows", "edit", "start_insert") ~= nil then
+    Utils.warn(
+      "avante's windows.edit.start_insert is deprecated. You can restore the current behavior by writing 'startinsert' in after/ftplugin/AvanteInput.vim",
+      { title = "Avante" }
+    )
+  end
+
   local migration_url = "https://github.com/yetone/avante.nvim/wiki/Provider-configuration-migration-guide"
 
   if opts.providers ~= nil then
