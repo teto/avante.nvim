@@ -54,8 +54,7 @@ jobs:
       - name: Prepare
         run: |
           sudo apt-get update
-          sudo apt-get install -y ripgrep
-          sudo apt-get install -y silversearcher-ag
+          sudo apt-get install -y ripgrep silversearcher-ag lua5.1 liblua5.1-0-dev luarocks
           echo "${PWD}/_neovim/bin" >> "$GITHUB_PATH"
           echo VIM="${PWD}/_neovim/share/nvim/runtime" >> "$GITHUB_ENV"
 
