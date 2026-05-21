@@ -73,6 +73,7 @@ function M:list_models()
     ["Accept"] = "application/json",
   }
 
+  Utils.info("Asking remote "..provider_conf.endpoint.."for available models")
   if Providers.env.require_api_key(provider_conf) then
     local api_key = self.parse_api_key()
     if api_key == nil then
