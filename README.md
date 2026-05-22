@@ -894,7 +894,7 @@ You may need to run `AvanteSwitchProvider claude` to initiate the authentication
 
 ### Basic Functionality
 
-Given its early stage, `avante.nvim` currently supports the following basic functionalities:
+`avante.nvim` currently supports the following basic functionalities:
 
 > [!IMPORTANT]
 >
@@ -1329,51 +1329,7 @@ For more information, see [Custom Providers](https://github.com/yetone/avante.nv
 
 ## RAG Service
 
-Avante provides a RAG service, which is a tool for obtaining the required context for the AI to generate the codes. By default, it is not enabled. You can enable it this way:
-
-```lua
-  rag_service = { -- RAG Service configuration
-    enabled = false, -- Enables the RAG service
-    host_mount = os.getenv("HOME"), -- Host mount path for the rag service (Docker will mount this path)
-    runner = "docker", -- Runner for the RAG service (can use docker or nix)
-    llm = { -- Language Model (LLM) configuration for RAG service
-      provider = "openai", -- LLM provider
-      endpoint = "https://api.openai.com/v1", -- LLM API endpoint
-      api_key = "OPENAI_API_KEY", -- Environment variable name for the LLM API key
-      model = "gpt-4o-mini", -- LLM model name
-      extra = nil, -- Additional configuration options for LLM
-    },
-    embed = { -- Embedding model configuration for RAG service
-      provider = "openai", -- Embedding provider
-      endpoint = "https://api.openai.com/v1", -- Embedding API endpoint
-      api_key = "OPENAI_API_KEY", -- Environment variable name for the embedding API key
-      model = "text-embedding-3-large", -- Embedding model name
-      extra = nil, -- Additional configuration options for the embedding model
-    },
-    docker_extra_args = "", -- Extra arguments to pass to the docker command
-  },
-```
-
-The RAG Service can currently configure the LLM and embedding models separately. In the `llm` and `embed` configuration blocks, you can set the following fields:
-
-- `provider`: Model provider (e.g., "openai", "ollama", "dashscope", and "openrouter")
-- `endpoint`: API endpoint
-- `api_key`: Environment variable name for the API key
-- `model`: Model name
-- `extra`: Additional configuration options
-
-For detailed configuration of different model providers, you can check [here](./py/rag-service/README.md).
-
-Additionally, RAG Service also depends on Docker! (For macOS users, OrbStack is recommended as a Docker alternative).
-
-`host_mount` is the path that will be mounted to the container, and the default is the home directory. The mount is required
-for the RAG service to access the files in the host machine. It is up to the user to decide if you want to mount the whole
-`/` directory, just the project directory, or the home directory. If you plan using avante and RAG event for projects
-stored outside your home directory, you will need to set the `host_mount` to the root directory of your file system.
-
-The mount will be read only.
-
-After changing the rag_service configuration, you need to manually delete the rag_service container to ensure the new configuration is used: `docker rm -fv avante-rag-service`
+Avante provides a RAG service, which is a tool for obtaining the required context for the AI to generate the codes. By default, it is not enabled. See `:h avante-rag-service`.
 
 ## Web Search Engines
 
@@ -1629,17 +1585,8 @@ Avante.nvim can be extended to work with other plugins by using its extension mo
 
 ## TODOs
 
-- [x] Chat with current file
-- [x] Apply diff patch
-- [x] Chat with the selected block
-- [x] Slash commands
-- [x] Edit the selected block
 - [x] Smart Tab (Cursor Flow)
 - [x] Chat with project (You can use `@codebase` to chat with the whole project)
-- [x] Chat with selected files
-- [x] Tool use
-- [x] MCP
-- [x] ACP
 - [ ] Better codebase indexing
 
 ## Roadmap

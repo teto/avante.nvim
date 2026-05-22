@@ -28,13 +28,32 @@
 ---   })
 ---<
 ---
---- The RAG service depends on Docker or Nix. The `host_mount` path is mounted
+--- The RAG service depends on Docker (For macOS users, OrbStack is recommended as a Docker alternative).) or Nix. The `host_mount` path is mounted
 --- read-only into the service container. After changing RAG configuration,
 --- remove the old container so the new configuration is used:
 --->
 ---   docker rm -fv avante-rag-service
 ---<
 ---
+--- The RAG Service can currently configure the LLM and embedding models separately. In the `llm` and `embed` configuration blocks, you can set the following fields:
+---
+--- - `provider`: Model provider (e.g., "openai", "ollama", "dashscope", and "openrouter")
+--- - `endpoint`: API endpoint
+--- - `api_key`: Environment variable name for the API key
+--- - `model`: Model name
+--- - `extra`: Additional configuration options
+---
+--- For detailed configuration of different model providers, you can check py/rag-service/README.md in the plugin folder.
+--- `host_mount` is the path that will be mounted to the container, and the default is the home directory. The mount is required
+--- for the RAG service to access the files in the host machine. It is up to the user to decide if you want to mount the whole
+--- `/` directory, just the project directory, or the home directory. If you plan using avante and RAG event for projects
+--- stored outside your home directory, you will need to set the `host_mount` to the root directory of your file system.
+
+The mount will be read only.
+
+After changing the rag_service configuration, you need to manually delete the rag_service container to ensure the new configuration is used: `docker rm -fv avante-rag-service`
+
+
 ---@brief ]]
 
 local curl = require("plenary.curl")
