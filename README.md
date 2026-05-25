@@ -191,6 +191,8 @@ For building binary if you wish to build from source, then `cargo` is required. 
   dependencies = {
     "nvim-lua/plenary.nvim",
     "MunifTanjim/nui.nvim",
+    "ColinKennedy/mega.cmdparse",
+    "ColinKennedy/mega.logging",
     --- The below dependencies are optional,
     "nvim-mini/mini.pick", -- for file_selector provider mini.pick
     "nvim-telescope/telescope.nvim", -- for file_selector provider telescope
@@ -254,6 +256,8 @@ call plug#begin()
 " Deps
 Plug 'nvim-lua/plenary.nvim'
 Plug 'MunifTanjim/nui.nvim'
+Plug 'ColinKennedy/mega.cmdparse'
+Plug 'ColinKennedy/mega.logging'
 Plug 'MeanderingProgrammer/render-markdown.nvim'
 
 " Optional deps
@@ -290,6 +294,8 @@ add({
   depends = {
     'nvim-lua/plenary.nvim',
     'MunifTanjim/nui.nvim',
+    'ColinKennedy/mega.cmdparse',
+    'ColinKennedy/mega.logging',
     'echasnovski/mini.icons'
   },
   hooks = { post_checkout = function() vim.cmd('make') end }
@@ -319,6 +325,8 @@ end)
   -- Required plugins
   use 'nvim-lua/plenary.nvim'
   use 'MunifTanjim/nui.nvim'
+  use 'ColinKennedy/mega.cmdparse'
+  use 'ColinKennedy/mega.logging'
   use 'MeanderingProgrammer/render-markdown.nvim'
 
   -- Optional dependencies
@@ -1081,7 +1089,7 @@ return {
 
 | Command                            | Description                                                                                                 | Examples                                            |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| `:AvanteAsk [question] [position]` | Ask AI about your code. Optional `position` set window position and `ask` enable/disable direct asking mode | `:AvanteAsk position=right Refactor this code here` |
+| `:AvanteAsk [--position] [question]` | Ask AI about your code. Optional `--position` sets window position and `--ask` enables/disables direct asking mode. Legacy `position=right` syntax is still accepted. | `:AvanteAsk --position=right Refactor this code here` |
 | `:AvanteBuild`                     | Build dependencies for the project                                                                          |                                                     |
 | `:AvanteChat`                      | Start a chat session with AI about your codebase. Default is `ask`=false                                    |                                                     |
 | `:AvanteChatNew`                   | Start a new chat session. The current chat can be re-opened with the chat session selector                  |                                                     |

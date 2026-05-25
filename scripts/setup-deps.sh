@@ -4,6 +4,8 @@ DEPS=(
   "folke/neodev.nvim"
   "nvim-lua/plenary.nvim"
   "MunifTanjim/nui.nvim"
+  "ColinKennedy/mega.logging"
+  "ColinKennedy/mega.cmdparse"
   "stevearc/dressing.nvim"
   "folke/snacks.nvim"
   "echasnovski/mini.nvim"

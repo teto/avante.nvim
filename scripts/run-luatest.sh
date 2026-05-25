@@ -20,34 +20,55 @@ check_tools() {
 }
 
 setup_deps() {
-    local plenary_path="$DEPS_DIR/plenary.nvim"
-    if [ -d "$plenary_path/.git" ]; then
-        log "plenary.nvim already exists. Updating..."
-        (
-            cd "$plenary_path"
-            git fetch -q
-            if git show-ref --verify --quiet refs/remotes/origin/main; then
-                git reset -q --hard origin/main
-            elif git show-ref --verify --quiet refs/remotes/origin/master; then
-                git reset -q --hard origin/master
+    local deps=(
+        "nvim-lua/plenary.nvim"
+        "ColinKennedy/mega.logging"
+        "ColinKennedy/mega.cmdparse"
+    )
+
+    mkdir -p "$DEPS_DIR"
+    for dep in "${deps[@]}"; do
+        local repo_name="${dep#*/}"
+        local repo_path="$DEPS_DIR/$repo_name"
+        if [ -d "$repo_path/.git" ]; then
+            log "$repo_name already exists. Updating..."
+            (
+                cd "$repo_path"
+                git fetch -q
+                if git show-ref --verify --quiet refs/remotes/origin/main; then
+                    git reset -q --hard origin/main
+                elif git show-ref --verify --quiet refs/remotes/origin/master; then
+                    git reset -q --hard origin/master
+                fi
+            )
+        else
+            if [ -d "$repo_path" ]; then
+                log "Removing non-git $repo_name directory and re-cloning."
+                rm -rf "$repo_path"
             fi
-        )
-    else
-        if [ -d "$plenary_path" ]; then
-            log "Removing non-git plenary.nvim directory and re-cloning."
-            rm -rf "$plenary_path"
+            log "Cloning $repo_name..."
+            git clone --depth 1 "https://github.com/${dep}.git" "$repo_path"
         fi
-        log "Cloning plenary.nvim..."
-        mkdir -p "$DEPS_DIR"
-        git clone --depth 1 "https://github.com/nvim-lua/plenary.nvim.git" "$plenary_path"
-    fi
+    done
+}
+
+make_runtimepath() {
+    local rtp=""
+    for path in "$DEPS_DIR/plenary.nvim" "$DEPS_DIR/mega.logging" "$DEPS_DIR/mega.cmdparse"; do
+        if [ -z "$rtp" ]; then
+            rtp="$path"
+        else
+            rtp="$rtp,$path"
+        fi
+    done
+    echo "$rtp"
 }
 
 run_tests() {
     log "Running tests..."
     nvim --headless --clean \
-        -c "set runtimepath+=$DEPS_DIR/plenary.nvim" \
-        -c "lua require('plenary.test_harness').test_directory('tests/', { minimal_init = 'NONE' })"
+        -c "set runtimepath+=$(make_runtimepath)" \
+        -c "lua require('plenary.test_harness').test_directory('tests/', { minimal_init = 'tests/minimal_init.lua' })"
 }
 
 main() {

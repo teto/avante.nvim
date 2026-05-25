@@ -634,11 +634,12 @@ avante commands                                                *avante-commands*
  Commands~
 
                                                      *:AvanteAsk*
- :AvanteAsk [question] [position=left|right|top|bottom] [ask=true|false]
+ :AvanteAsk [--position=left|right|top|bottom] [--ask=true|false] [question]
          Ask AI about your code. Example:
 >
-         :AvanteAsk position=right Refactor this function
+         :AvanteAsk --position=right Refactor this function
 <
+        Legacy key=value arguments such as `position=right` are still accepted.
 
                                                      *:AvanteChat*
  :AvanteChat [args]
@@ -657,7 +658,7 @@ avante commands                                                *avante-commands*
          Clear the current chat history or Avante cache.
 
                                                      *:AvanteBuild*
- :AvanteBuild [source=true|false]
+ :AvanteBuild [--source=true|false]
          Build dependencies for the project.
 
                                                      *:AvanteEdit*

@@ -83,6 +83,8 @@
   dependencies = {
     "nvim-lua/plenary.nvim",
     "MunifTanjim/nui.nvim",
+    "ColinKennedy/mega.cmdparse",
+    "ColinKennedy/mega.logging",
     --- 以下依赖项是可选的，
     "echasnovski/mini.pick", -- 用于文件选择器提供者 mini.pick
     "nvim-telescope/telescope.nvim", -- 用于文件选择器提供者 telescope
@@ -130,6 +132,8 @@
 " 依赖项
 Plug 'nvim-lua/plenary.nvim'
 Plug 'MunifTanjim/nui.nvim'
+Plug 'ColinKennedy/mega.cmdparse'
+Plug 'ColinKennedy/mega.logging'
 Plug 'MeanderingProgrammer/render-markdown.nvim'
 
 " 可选依赖项
@@ -160,6 +164,8 @@ add({
   depends = {
     'nvim-lua/plenary.nvim',
     'MunifTanjim/nui.nvim',
+    'ColinKennedy/mega.cmdparse',
+    'ColinKennedy/mega.logging',
     'echasnovski/mini.icons'
   },
   hooks = { post_checkout = function() vim.cmd('make') end }
@@ -189,6 +195,8 @@ end)
   -- 必需插件
   use 'nvim-lua/plenary.nvim'
   use 'MunifTanjim/nui.nvim'
+  use 'ColinKennedy/mega.cmdparse'
+  use 'ColinKennedy/mega.logging'
   use 'MeanderingProgrammer/render-markdown.nvim'
 
   -- 可选依赖项
@@ -744,7 +752,7 @@ return {
 
 | 命令                               | 描述                                                                                     | 示例                                                |
 | ---------------------------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| `:AvanteAsk [question] [position]` | 询问 AI 关于您的代码的问题。可选的 `position` 设置窗口位置和 `ask` 启用/禁用直接询问模式 | `:AvanteAsk position=right Refactor this code here` |
+| `:AvanteAsk [--position] [question]` | 询问 AI 关于您的代码的问题。可选的 `--position` 设置窗口位置，`--ask` 启用/禁用直接询问模式。仍然接受旧的 `position=right` 语法。 | `:AvanteAsk --position=right Refactor this code here` |
 | `:AvanteBuild`                     | 构建项目的依赖项                                                                         |                                                     |
 | `:AvanteChat`                      | 启动与 AI 的聊天会话，讨论您的代码库。默认情况下 `ask`=false                             |                                                     |
 | `:AvanteClear`                     | 清除聊天记录                                                                             |                                                     |

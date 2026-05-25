@@ -16,6 +16,14 @@ function M.check()
       path = "MunifTanjim/nui.nvim",
       module = "nui.popup",
     },
+    ["mega.cmdparse"] = {
+      path = "ColinKennedy/mega.cmdparse",
+      module = "mega.cmdparse",
+    },
+    ["mega.logging"] = {
+      path = "ColinKennedy/mega.logging",
+      module = "mega.logging",
+    },
   }
 
   for name, plugin in pairs(required_plugins) do
