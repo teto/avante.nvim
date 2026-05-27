@@ -600,8 +600,17 @@ function M:parse_response(ctx, data_stream, _, opts)
   end
 
   ---@type any
+  ---@type any
   local jsn = vim.json.decode(data_stream)
 
+  -- check
+  -- print(jsn)
+  -- llama.cpp returns timings
+  -- https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md#post-v1chatcompletions-openai-compatible-chat-completions-api
+  if jsn.timings then
+    vim.print(jsn.timings)
+  end
+  ---@diagnostic disable-next-line: need-check-nil
   -- Check if this is a Response API event (has 'type' field)
   if jsn.type and type(jsn.type) == "string" then
     -- Response API event-driven format
@@ -720,6 +729,7 @@ function M:parse_response(ctx, data_stream, _, opts)
   local delta = choice.delta
   if not delta then
     local provider_conf = Providers.parse_config(self)
+    ---@diagnostic disable-next-line: need-check-nil
     if provider_conf.model:match("o1") then delta = choice.message end
   end
   if not delta then return end

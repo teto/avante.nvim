@@ -1635,7 +1635,7 @@ function M._continue_stream_acp(opts, acp_client, session_id)
     end,
   })
   log.debug("Prompt length ", #prompt)
-  vim.print("Prompt ", prompt)
+  -- vim.print("Prompt ", prompt)
   acp_client:send_prompt(session_id, prompt, function(_, err_)
     if cancelled then return end
     vim.schedule(function() api.nvim_del_autocmd(stop_cmd_id) end)
@@ -2150,7 +2150,6 @@ end
 ---@param opts AvanteLLMStreamOptions
 function M.stream(opts)
   Utils.debug("Starting stream")
-  vim.print(opts)
   local is_completed = false
   if opts.on_tool_log ~= nil then
     local original_on_tool_log = opts.on_tool_log
