@@ -538,6 +538,7 @@ function M:add_thinking_message(ctx, text, state, opts)
 end
 
 function M:add_tool_use_message(ctx, tool_use, state, opts)
+  Utils.debug("Adding tool_use message")
   local jsn = JsonParser.parse(tool_use.input_json)
   -- Fix: Ensure empty arguments are encoded as {} (object) not [] (array)
   if jsn == nil or (type(jsn) == "table" and vim.tbl_isempty(jsn)) then jsn = vim.empty_dict() end
@@ -558,6 +559,7 @@ function M:add_tool_use_message(ctx, tool_use, state, opts)
 end
 
 function M:add_reasoning_message(ctx, reasoning_item, opts)
+  Utils.debug("add_reasoning_message")
   local msg = HistoryMessage:new("assistant", {
     type = "reasoning",
     id = reasoning_item.id,
@@ -580,15 +582,14 @@ function M.transform_openai_usage(usage)
   local res = {
     prompt_tokens = usage.prompt_tokens,
     completion_tokens = usage.completion_tokens,
-    -- total_tokens is the sum of both
   }
   return res
 end
 
---- Parse response
---- Updates status
 function M:parse_response(ctx, data_stream, _, opts)
+
   if data_stream:match('"%[DONE%]":') or data_stream == "[DONE]" then
+    print("DONE reached", data_stream)
     self:finish_pending_messages(ctx, opts)
     if ctx.tool_use_map and vim.tbl_count(ctx.tool_use_map) > 0 then
       ctx.tool_use_map = {}
@@ -600,16 +601,18 @@ function M:parse_response(ctx, data_stream, _, opts)
   end
 
   ---@type any
-  ---@type any
   local jsn = vim.json.decode(data_stream)
-
-  -- check
   -- print(jsn)
   -- llama.cpp returns timings
   -- https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md#post-v1chatcompletions-openai-compatible-chat-completions-api
+  -- todo move to openai ?
   if jsn.timings then
-    vim.print(jsn.timings)
+    vim.print("allaround timings:", jsn)
   end
+
+
+
+
   ---@diagnostic disable-next-line: need-check-nil
   -- Check if this is a Response API event (has 'type' field)
   if jsn.type and type(jsn.type) == "string" then
@@ -732,7 +735,9 @@ function M:parse_response(ctx, data_stream, _, opts)
     ---@diagnostic disable-next-line: need-check-nil
     if provider_conf.model:match("o1") then delta = choice.message end
   end
-  if not delta then return end
+  if not delta then
+    return
+  end
   if delta.reasoning_content and delta.reasoning_content ~= vim.NIL and delta.reasoning_content ~= "" then
     if ctx.returned_think_start_tag == nil or not ctx.returned_think_start_tag then
       ctx.returned_think_start_tag = true
@@ -797,6 +802,11 @@ function M:parse_response(ctx, data_stream, _, opts)
   end
   if choice.finish_reason == "stop" or choice.finish_reason == "eos_token" or choice.finish_reason == "length" then
     self:finish_pending_messages(ctx, opts)
+    if jsn.timings then
+      vim.print("timings when done", jsn.timings)
+      self:add_text_message(ctx, "", "timings generated !", opts)
+    end
+
     if ctx.tool_use_map and vim.tbl_count(ctx.tool_use_map) > 0 then
       opts.on_stop({ reason = "tool_use", usage = self.transform_openai_usage(jsn.usage) })
     else
@@ -813,6 +823,7 @@ function M:parse_response(ctx, data_stream, _, opts)
 end
 
 function M:parse_response_without_stream(data, _, opts)
+  print("parse_response_without_stream")
   ---@type AvanteOpenAIChatResponse
   local json = vim.json.decode(data)
   if json.choices and json.choices[1] then

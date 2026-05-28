@@ -3071,6 +3071,7 @@ function Sidebar:create_input_container()
       buftype = "nofile",
     },
     win_options = vim.tbl_deep_extend("force", base_win_options, { signcolumn = "yes", wrap = Config.windows.wrap }),
+    ---@diagnostic disable-next-line: assign-type-mismatch
     position = get_position(),
     size = get_size(),
   })

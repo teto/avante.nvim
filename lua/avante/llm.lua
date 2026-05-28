@@ -535,8 +535,8 @@ function M.curl(opts)
     return
   end
 
-  ---@type string?
-  local current_event_state = nil
+  ---@type string
+  local current_event_state = "placeholder"
   local turn_ctx = {}
   turn_ctx.turn_id = Utils.uuid()
 
