@@ -243,6 +243,7 @@ end
 ---@field minimize_diff? boolean Remove unchanged lines when applying a code block.
 ---@field enable_token_counting? boolean Enable token counting.
 ---Some APIs return the number of tokens consumed.
+---@field show_inference_timings boolean Defaults to false. Show inference timings when protocol supports it
 ---@field use_cwd_as_project_root? boolean Use the current working directory as project root.
 ---@field auto_focus_on_diff_view? boolean Focus the diff view automatically.
 ---@field auto_approve_tool_permissions? boolean|string[] Auto-approve all tools, no tools, or only specific tool names.
@@ -843,6 +844,7 @@ M._defaults = {
     support_paste_from_clipboard = false,
     minimize_diff = true,
     enable_token_counting = true,
+    show_inference_timings = false,
     use_cwd_as_project_root = false,
     auto_focus_on_diff_view = false,
     ---@type boolean | string[] -- true: auto-approve all tools, false: normal prompts, string[]: auto-approve specific tools by name

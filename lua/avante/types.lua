@@ -293,6 +293,14 @@ vim.g.avante_login = vim.g.avante_login
 ---@field prompt_tokens number
 ---@field completion_tokens number
 ---
+---@class avante.LLMInferenceTimings
+---The total number of tokens in context is equal to prompt_n + cache_n + predicted_n
+---see https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md#post-v1chatcompletions-openai-compatible-chat-completions-api for doc
+---@field prompt_tokens number
+---@field predicted_per_second number
+---@field prompt_n number of prompt tokens being processed
+---@field cache_n number number of prompt tokens reused from cache
+---
 ---@class AvanteLLMThinkingBlock
 ---@field thinking string
 ---@field signature string
@@ -317,6 +325,7 @@ vim.g.avante_login = vim.g.avante_login
 ---@field reason "complete" | "tool_use" | "error" | "rate_limit" | "cancelled" | "max_tokens" | "usage"
 ---@field error? string | table
 ---@field usage? avante.LLMTokenUsage
+---@field timings? avante.LLMInferenceTimings
 ---@field retry_after? integer
 ---@field headers? table<string, string>
 ---@field streaming_tool_use? boolean
