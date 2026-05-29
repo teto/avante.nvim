@@ -96,6 +96,7 @@ jobs:
       - name: Build all crates
         if: ${{ matrix.config.container == null }}
         run: |
+          # TODO leverage AvanteBuild
           cargo build --release --features ${{ matrix.feature }}
 
       - name: Build all crates with glibc 2.17 # for glibc 2.17
@@ -110,16 +111,20 @@ jobs:
             ${{ matrix.config.container }} \
             bash -c "yum install -y perl-IPC-Cmd openssl-devel && curl --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal && . /root/.cargo/env && cargo build --release --features ${{ matrix.feature }}"
 
-      - name: Handle binaries
+      - name: Handle binaries (Linux/MacOS)
         if: ${{ matrix.config.os_name != 'windows' }}
         shell: bash
         run: |
           mkdir -p results
           EXT="so"
-          cp target/release/libavante_templates.$EXT results/avante_templates.$EXT
-          cp target/release/libavante_tokenizers.$EXT results/avante_tokenizers.$EXT
-          cp target/release/libavante_repo_map.$EXT results/avante_repo_map.$EXT
-          cp target/release/libavante_html2md.$EXT results/avante_html2md.$EXT
+          echo "ls target"
+          ls -lR target
+          echo "ls lua"
+          ls -lR lua
+          cp -v target/release/libavante_templates.$EXT results/avante_templates.$EXT
+          cp -v target/release/libavante_tokenizers.$EXT results/avante_tokenizers.$EXT
+          cp -v target/release/libavante_repo_map.$EXT results/avante_repo_map.$EXT
+          cp -v target/release/libavante_html2md.$EXT results/avante_html2md.$EXT
 
           cd results
           tar zcvf avante_lib-${{ matrix.config.os_name }}-${{ matrix.config.arch }}-${{ matrix.feature }}.tar.gz *.${EXT}
