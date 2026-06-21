@@ -85,6 +85,8 @@ jobs:
 
       - uses: ./.github/actions/build
         with: ${{ matrix.config }}
+        # with:
+        #   os: ${{ matrix.config.os }}
 
       - name: Upload Release Asset
         if: ${{ matrix.config.os_name != 'windows' }}
