@@ -1,38 +1,31 @@
-name: Build libraries
+---
+name: Build avante libraries
+description: shared action used in test and release avante workflows
+inputs:
+  os_name:
+    type: string
+    description: One of "windows", "linux" or "darwin"
+    required: true
+  os:
+    type: string
+    description: github input type as used in "runs-on"
+  arch:
+    type: string
+    description: one of aarch64, x86_64
+  rust_target:
+    type: string
+    # can we do without ?
+    description: e.g. "aarch64-pc-windows-msvc"
+  docker_platform:
+    type: string
+    description: for example "linux/amd64"
+  container:
+    type: string
+    description: for instance quay.io/pypa/manylinux2014_x86_64 # for glibc 2.17
 
-on:
-  workflow_call:
-    inputs:
-      os_name:
-        type: string
-        description: One of "windows", "linux" or "darwin"
-        required: true
-      os:
-        type: string
-        description: github input type as used in "runs-on"
-      arch:
-        type: string
-        description: one of aarch64, x86_64
-      rust_target:
-        type: string
-        # can we do without ?
-        description: e.g. "aarch64-pc-windows-msvc"
-      docker_platform:
-        type: string
-        description: for example "linux/amd64"
-      container:
-        type: string
-        description: for instance quay.io/pypa/manylinux2014_x86_64 # for glibc 2.17
-
-jobs:
-  build-libraries:
-    strategy:
-      fail-fast: false
-      matrix:
-        feature: [lua51, luajit]
-
-    runs-on: ${{ inputs.os }}
-
+runs:
+  using: "composite"
+  steps:
     steps:
       - uses: actions/checkout@v7
       - uses: Swatinem/rust-cache@82a92a6e8fbeee089604da2575dc567ae9ddeaab # ratchet:Swatinem/rust-cache@v2

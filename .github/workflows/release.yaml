@@ -79,7 +79,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: ./.github/workflows/build.yaml
+      - name: list files
+        run: |
+          ls -laR .github
+
+      - uses: ./.github/actions/build
         with: ${{ matrix.config }}
 
       - name: Upload Release Asset
