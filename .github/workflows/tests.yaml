@@ -36,6 +36,7 @@ jobs:
         run: |
           nix develop .#ci --command nvim --version
           nix develop .#ci --command make luatest
+
       - name: Typecheck
         run:
           nix develop .#ci --command make lua-typecheck

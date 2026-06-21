@@ -77,6 +77,8 @@ jobs:
     runs-on: ${{ matrix.config.os }}
 
     steps:
+      - uses: actions/checkout@v7
+
       - uses: ./.github/workflows/build.yaml
         with: ${{ matrix.config }}
 
