@@ -39,7 +39,9 @@ runs:
         shell: bash
         if: ${{ inputs.container == null && inputs.os_name != 'windows' }}
         run: |
-          nix develop .#ci --command  nvim --headless -u NONE --cmd "set rtp^=." -c "runtime plugin/avante.lua" -c "AvanteBuild source=true" -c "qa"
+          ./scripts/setup-deps.sh clone "deps/"
+
+          nix develop .#ci --command  nvim --headless -u NONE --cmd "set rtp^=." --cmd "set rtp^=deps/" -c "runtime plugin/avante.lua" -c "AvanteBuild source=true" -c "qa"
 
       - name: Build all crates (Windows)
         if: ${{ inputs.os_name == 'windows' }}

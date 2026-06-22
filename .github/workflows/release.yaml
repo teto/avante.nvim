@@ -79,9 +79,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: list files
-        run: |
-          ls -laR .github
+      # fails on windows
+      # - name: list files
+      #   run: |
+      #     ls -laR .github
 
       - uses: ./.github/actions/build
         with: ${{ matrix.config }}
