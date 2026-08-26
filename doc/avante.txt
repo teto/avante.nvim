@@ -26,6 +26,7 @@ Usage ·····································
  ······································································ |avante|
 Configuration via variable ······································ |vim.g.avante|
 Configuration ·················································· |avante-config|
+Avante API ························································ |avante-api|
 Commands (:AvanteAsk,...) ···································· |avante-commands|
 Sidebar ······················································· |avante-sidebar|
 Slash commands ·········································· |avante-slashcommands|
@@ -573,6 +574,128 @@ M.get_provider_config({provider_name})       *avante-config.get_provider_config*
 
 
 ==============================================================================
+Avante API                                                          *avante-api*
+
+A collection of functions to build your own avante experience.
+
+avante.ApiToggle                                              *avante.ApiToggle*
+
+    Fields: ~
+        {debug}  (ToggleBind.wrap)  @operator call(): boolean
+        {hint}   (ToggleBind.wrap)
+
+
+avante.Api                                                          *avante.Api*
+
+    Fields: ~
+        {toggle}  (avante.ApiToggle)
+
+
+                                           *avante-api.switch_selector_provider*
+M.switch_selector_provider({target_provider})
+
+    Parameters: ~
+        {target_provider}  (avante.SelectorProvider)
+
+
+M.switch_input_provider({target_provider})    *avante-api.switch_input_provider*
+
+    Parameters: ~
+        {target_provider}  (avante.InputProvider)
+
+
+M.switch_provider({target})                         *avante-api.switch_provider*
+
+    Parameters: ~
+        {target}  (avante.ProviderName)
+
+
+M.build({opts?})                                              *avante-api.build*
+    Command to install the necessary rust libraries
+    Defaults to download the libraries but passing `source=true` will force a local build via cargo
+    Blocking as it waits for cargo to finish
+
+    Parameters: ~
+        {opts?}  ({source:boolean})
+
+
+AskOptions                                                          *AskOptions*
+
+    Fields: ~
+        {question?}             (string)                       optional questions
+        {win?}                  (table<string,any>)            windows options similar to |nvim_open_win()|
+        {ask?}                  (boolean)
+        {floating?}             (boolean)                      whether to open a floating input to enter the question
+        {new_chat?}             (boolean)                      whether to open a new chat
+        {without_selection?}    (boolean)                      whether to open a new chat without selection
+        {sidebar_pre_render?}   (fun(sidebar:avante.Sidebar))
+        {sidebar_post_render?}  (fun(sidebar:avante.Sidebar))
+        {project_root?}         (string)                       optional project root
+        {show_logo?}            (boolean)                      whether to show the logo
+
+
+M.full_view_ask()                                     *avante-api.full_view_ask*
+
+
+M.ask({opts?})                                                  *avante-api.ask*
+
+    Parameters: ~
+        {opts?}  (AskOptions)
+
+
+M.edit({request?}, {line1?}, {line2?})                         *avante-api.edit*
+
+    Parameters: ~
+        {request?}  (string)
+        {line1?}    (integer)
+        {line2?}    (integer)
+
+
+M.get_suggestion()                                   *avante-api.get_suggestion*
+
+    Returns: ~
+        (avante.Suggestion|nil)
+
+
+M.refresh({opts?})                                          *avante-api.refresh*
+
+    Parameters: ~
+        {opts?}  (AskOptions)
+
+
+M.focus({opts?})                                              *avante-api.focus*
+
+    Parameters: ~
+        {opts?}  (AskOptions)
+
+
+M.select_model()                                       *avante-api.select_model*
+    Select a model
+    Saves the choice to stdpath("state")
+
+
+M.select_acp_model()                               *avante-api.select_acp_model*
+
+
+M.select_acp_mode()                                 *avante-api.select_acp_mode*
+
+
+M.select_history()                                   *avante-api.select_history*
+
+
+M.add_buffer_files()                               *avante-api.add_buffer_files*
+
+
+M.add_selected_file()                             *avante-api.add_selected_file*
+
+
+M.remove_selected_file()                       *avante-api.remove_selected_file*
+
+
+M.stop()                                                       *avante-api.stop*
+
+
+==============================================================================
 Commands (:AvanteAsk,...)                                      *avante-commands*
 
 
@@ -643,7 +766,7 @@ Commands (:AvanteAsk,...)                                      *avante-commands*
 
                                                      *:AvanteModels*
  :AvanteModels
-         Show the model list.
+         Show the model list. See |avante-api.select_model|
 
                                                      *:AvanteACPModels*
  :AvanteACPModels
@@ -918,15 +1041,6 @@ Sidebar:retry_user_request()                 *avante-sidebar:retry_user_request*
 Sidebar:handle_expand_message()           *avante-sidebar:handle_expand_message*
 
 
-Sidebar:edit_user_request()                   *avante-sidebar:edit_user_request*
-
-
-Sidebar:apply({current_cursor})                           *avante-sidebar:apply*
-
-    Parameters: ~
-        {current_cursor}  (boolean)
-
-
 Sidebar:render_header()                           *avante-sidebar:render_header*
     When include_model is set, in ACP mode, model will be rendered as "model | mode"
     else it will be set as
@@ -940,23 +1054,6 @@ Sidebar:render_input({ask?})                       *avante-sidebar:render_input*
 
     Parameters: ~
         {ask?}  (boolean)
-
-
-Sidebar:render_selected_code()             *avante-sidebar:render_selected_code*
-
-
-Sidebar:bind_apply_key()                         *avante-sidebar:bind_apply_key*
-
-
-Sidebar:unbind_apply_key()                     *avante-sidebar:unbind_apply_key*
-
-
-                                    *avante-sidebar:bind_retry_user_request_key*
-Sidebar:bind_retry_user_request_key()
-
-
-                                  *avante-sidebar:unbind_retry_user_request_key*
-Sidebar:unbind_retry_user_request_key()
 
 
 Sidebar:bind_expand_tool_use_key()     *avante-sidebar:bind_expand_tool_use_key*
