@@ -1,3 +1,8 @@
+---@mod avante-api Avante API
+---
+---@brief [[
+---A collection of functions to build your own avante experience.
+---@brief ]]
 local Config = require("avante.config")
 local Utils = require("avante.utils")
 
@@ -258,6 +263,8 @@ function M.focus(opts)
   end
 end
 
+---Select a model
+---Saves the choice to stdpath("state")
 function M.select_model() require("avante.model_selector").open() end
 
 function M.select_acp_model() require("avante.acp_config_selector").open_model() end
@@ -327,6 +334,7 @@ end
 
 function M.stop() require("avante.llm").cancel_inflight_request() end
 
+---@export M
 return setmetatable(M, {
   __index = function(t, k)
     local module = require("avante")

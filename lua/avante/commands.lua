@@ -69,7 +69,7 @@
 ---
 ---                                                     *:AvanteModels*
 --- :AvanteModels
----         Show the model list.
+---         Show the model list. See |avante-api.select_model|
 ---
 ---                                                     *:AvanteACPModels*
 --- :AvanteACPModels
