@@ -1095,7 +1095,7 @@ M._defaults = {
 M._options = {}
 
 ---@diagnostic disable-next-line: param-type-mismatch
-local function get_config_dir_path() return vim.fs.joinpath(vim.fn.expand("~"), ".config", "avante.nvim") end
+local function get_config_dir_path() return vim.fs.joinpath(vim.fn.stdpath("state"), "avante") end
 local function get_config_file_path() return vim.fs.joinpath(get_config_dir_path(), "config.json") end
 
 --- Function to save the last used model
