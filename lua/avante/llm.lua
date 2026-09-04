@@ -572,10 +572,10 @@ function M.curl(opts)
 
   local active_job ---@type Job|nil
 
-  local temp_file = fn.tempname()
-  local curl_body_file = temp_file .. "-request-body.json"
-  local resp_body_file = temp_file .. "-response-body.txt"
-  local headers_file = temp_file .. "-response-headers.txt"
+  local prefix = fn.tempname() .. "-" ..provider
+  local curl_body_file = prefix .. "-request-body.json"
+  local resp_body_file = prefix .. "-response-body.txt"
+  local headers_file = prefix .. "-response-headers.txt"
 
   -- Check if this is a multipart form request (specifically for watsonx)
   local is_multipart_form = spec.headers and spec.headers["Content-Type"] == "multipart/form-data"
