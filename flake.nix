@@ -113,6 +113,10 @@
                 "bin/fastapi"
                 "bin/llama-parse"
               ];
+              postInstall = (old.postInstall or "") + ''
+                # This application does not need shell activation scripts.
+                rm -f "$out"/bin/activate "$out"/bin/activate.* "$out"/bin/Activate.ps1
+              '';
               meta = (old.meta or { }) // {
                 mainProgram = "rag-service";
               };
