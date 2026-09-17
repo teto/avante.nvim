@@ -509,7 +509,7 @@ _See [config.lua#L9](./lua/avante/config.lua) for the up to date full default co
   providers = {
     claude = {
       endpoint = "https://api.anthropic.com",
-      auth_type = "api" -- Set to "max" to sign in with Claude Pro/Max subscription
+      auth_type = "api", -- Set to "max" to sign in with Claude Pro/Max subscription
       model = "claude-3-5-sonnet-20241022",
       extra_request_body = {
         temperature = 0.75,
