@@ -1542,10 +1542,13 @@ M.get_current_image()                     *avante-rag-service.get_current_image*
 M.get_rag_service_runner()           *avante-rag-service.get_rag_service_runner*
 
 
-M.launch_rag_service({cb})               *avante-rag-service.launch_rag_service*
+M.launch_rag_service()                   *avante-rag-service.launch_rag_service*
+    Attempts to start the service regardless of its current status.
+    Wrap it with `M.is_ready` to check beforehand it's already started or call
+    Call `M.run_rag_service` that does it for you
 
-    Parameters: ~
-        {cb}  (fun())  called after the service started
+    See: ~
+        |M.run_rag_service|
 
 
 M.stop_rag_service()                       *avante-rag-service.stop_rag_service*
