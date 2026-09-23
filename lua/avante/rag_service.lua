@@ -111,10 +111,14 @@ end
 ---Read deprecated Docker options without exposing them in the public config type.
 ---@param key string
 ---@param fallback string
+---@param config? avante.Config.RagService
 ---@return string
-local function docker_option(key, fallback) return rawget(Config.rag_service or {}, key) or fallback end
+local function docker_option(key, fallback, config) return rawget(config or Config.rag_service or {}, key) or fallback end
 
-local function host_mount() return docker_option("host_mount", os.getenv("HOME")) end
+---@param config? avante.Config.RagService
+local function host_mount(config)
+  return docker_option("host_mount", assert(os.getenv("HOME"), "HOME is not set"), config)
+end
 
 ---@brief Return the Docker image full name.
 function M.get_rag_service_image() return docker_option("image", "quay.io/yetoneful/avante-rag-service:0.0.11") end
@@ -138,160 +142,139 @@ end
 
 function M.get_rag_service_runner() return (Config.rag_service and Config.rag_service.runner) or "docker" end
 
+---@param model avante.Config.RagServiceModel
+---@return string api_key
+---@return string extra
+local function model_options(model)
+  local api_key = ""
+  if model.api_key and model.api_key ~= "" then
+    api_key = os.getenv(model.api_key) or ""
+    if api_key == "" then error(string.format("cannot launch avante rag service, %s is not set", model.api_key)) end
+  end
+  local extra = model.extra and string.format("%q", vim.json.encode(model.extra)) or "{}"
+  return api_key, extra
+end
+
+---@param config avante.Config.RagService
+local function start_docker(config)
+  local llm_api_key, llm_extra = model_options(config.llm)
+  local embed_api_key, embed_extra = model_options(config.embed)
+  local image = docker_option("image", "quay.io/yetoneful/avante-rag-service:0.0.11", config)
+  local data_path = M.get_data_path()
+  local cmd = { "docker", "inspect", "--format", "{{.State.Status}}", container_name }
+  local result = vim.system(cmd, { text = true }):wait()
+  if result.code ~= 0 then Utils.debug(string.format("cmd: %s execution error", table.concat(cmd, " "))) end
+  if result.stdout == "" then
+    Utils.debug(string.format("container %s not found, starting...", container_name))
+  elseif result.stdout == "running" then
+    Utils.debug(string.format("container %s already running", container_name))
+    local current_image = M.get_current_image()
+    if current_image == image then return end
+    Utils.debug(
+      string.format(
+        "container %s is running with different image: %s != %s, stopping...",
+        container_name,
+        current_image,
+        image
+      )
+    )
+    M.stop_rag_service()
+  end
+  if result.stdout ~= "running" then
+    Utils.info(string.format("container %s already started but not running, stopping...", container_name))
+    M.stop_rag_service()
+  end
+  local cmd_ = string.format(
+    "docker run --platform=linux/amd64 -d -p 0.0.0.0:%d:%d --name %s -v %s:/data -v %s:/host:ro -e ALLOW_RESET=TRUE -e DATA_DIR=/data -e RAG_EMBED_PROVIDER=%s -e RAG_EMBED_ENDPOINT=%s -e RAG_EMBED_API_KEY=%s -e RAG_EMBED_MODEL=%s -e RAG_EMBED_EXTRA=%s -e RAG_LLM_PROVIDER=%s -e RAG_LLM_ENDPOINT=%s -e RAG_LLM_API_KEY=%s -e RAG_LLM_MODEL=%s -e RAG_LLM_EXTRA=%s %s %s",
+    M.get_rag_service_port(),
+    M.get_rag_service_port(),
+    container_name,
+    data_path,
+    host_mount(config),
+    config.embed.provider,
+    config.embed.endpoint,
+    embed_api_key,
+    config.embed.model,
+    embed_extra,
+    config.llm.provider,
+    config.llm.endpoint,
+    llm_api_key,
+    config.llm.model,
+    llm_extra,
+    docker_option("docker_extra_args", "", config),
+    image
+  )
+  vim.fn.jobstart(cmd_, {
+    detach = true,
+    on_exit = function(_, exit_code)
+      if exit_code ~= 0 then
+        Utils.error(string.format("container %s failed to start, exit code: %d", container_name, exit_code))
+      else
+        Utils.debug(string.format("container %s started", container_name))
+      end
+    end,
+  })
+end
+
+---@param config avante.Config.RagService
+local function start_nix(config)
+  local llm_api_key, llm_extra = model_options(config.llm)
+  local embed_api_key, embed_extra = model_options(config.embed)
+  local port = M.get_rag_service_port()
+  Utils.debug(string.format("launching %s with nix...", container_name))
+
+  -- can be launched beforehand via "uv run"
+  local args = {
+    "avante-rag-service",
+    service_path,
+    "--port",
+    port,
+    "--embed-provider",
+    config.embed.provider,
+    "--embed-extra",
+    embed_extra,
+    "--llm-provider",
+    config.llm.provider,
+    "--llm-model",
+    config.llm.model,
+  }
+  Utils.info("Starting rag service with: " .. table.concat(args, " "))
+  local ok, job_or_err = pcall(vim.system, args, {
+    detach = true,
+    env = {
+      DATA_DIR = service_path,
+      RAG_EMBED_ENDPOINT = config.embed.endpoint,
+      RAG_EMBED_API_KEY = embed_api_key,
+      RAG_EMBED_MODEL = config.embed.model,
+      RAG_LLM_ENDPOINT = config.llm.endpoint,
+      RAG_LLM_API_KEY = llm_api_key,
+      RAG_LLM_EXTRA = llm_extra,
+    },
+  }, function(res)
+    if res.code ~= 0 then
+      Utils.error(string.format("service %s failed to start, exit code: %d", container_name, res.code))
+    else
+      Utils.info(string.format("RAG service %s started successfully", container_name))
+    end
+  end)
+  if not ok then
+    Utils.error(
+      "Could not launch 'avante-rag-service', you can install it via nix profile add github:avante-corp/avante.nvim#ragService. Error:\n"
+        .. job_or_err
+    )
+  end
+end
+
+local runners = { docker = start_docker, nix = start_nix }
+
 ---Attempts to start the service regardless of its current status.
----Wrap it with `M.is_ready` to check beforehand it's already started or call
----Call `M.run_rag_service` that does it for you
+---Call `M.run_rag_service` to also poll readiness and register the project.
 ---@see M.run_rag_service
 function M.launch_rag_service()
   local runner = M.get_rag_service_runner()
-  if type(runner) == "function" then
-    runner(Config.rag_service)
-    return
-  end
-  --- If Config.rag_service.llm.api_key is nil or empty, llm_api_key will be an empty string.
-  local llm_api_key = ""
-  if
-    Config.rag_service
-    and Config.rag_service.llm
-    and Config.rag_service.llm.api_key
-    and Config.rag_service.llm.api_key ~= ""
-  then
-    llm_api_key = os.getenv(Config.rag_service.llm.api_key) or ""
-    if llm_api_key == nil or llm_api_key == "" then
-      error(string.format("cannot launch avante rag service, %s is not set", Config.rag_service.llm.api_key))
-      return
-    end
-  end
-
-  --- If Config.rag_service.embed.api_key is nil or empty, embed_api_key will be an empty string.
-  local embed_api_key = ""
-  if
-    Config.rag_service
-    and Config.rag_service.embed
-    and Config.rag_service.embed.api_key
-    and Config.rag_service.embed.api_key ~= ""
-  then
-    embed_api_key = os.getenv(Config.rag_service.embed.api_key) or ""
-    if embed_api_key == nil or embed_api_key == "" then
-      error(string.format("cannot launch avante rag service, %s is not set", Config.rag_service.embed.api_key))
-      return
-    end
-  end
-
-  local embed_extra = "{}" -- Default to empty JSON object string
-  if Config.rag_service and Config.rag_service.embed and Config.rag_service.embed.extra then
-    embed_extra = string.format("%q", vim.json.encode(Config.rag_service.embed.extra))
-  end
-
-  local llm_extra = "{}" -- Default to empty JSON object string
-  if Config.rag_service and Config.rag_service.llm and Config.rag_service.llm.extra then
-    llm_extra = string.format("%q", vim.json.encode(Config.rag_service.llm.extra))
-  end
-
-  local port = M.get_rag_service_port()
-
-  if M.get_rag_service_runner() == "docker" then
-    local image = M.get_rag_service_image()
-    local data_path = M.get_data_path()
-    local cmd = { "docker", "inspect", "--format", "{{.State.Status}}", container_name }
-    local result = vim.system(cmd, { text = true }):wait()
-    if result.code ~= 0 then Utils.debug(string.format("cmd: %s execution error", table.concat(cmd, " "))) end
-    if result.stdout == "" then
-      Utils.debug(string.format("container %s not found, starting...", container_name))
-    elseif result.stdout == "running" then
-      Utils.debug(string.format("container %s already running", container_name))
-      local current_image = M.get_current_image()
-      if current_image == image then return end
-      Utils.debug(
-        string.format(
-          "container %s is running with different image: %s != %s, stopping...",
-          container_name,
-          current_image,
-          image
-        )
-      )
-      M.stop_rag_service()
-    end
-    if result.stdout ~= "running" then
-      Utils.info(string.format("container %s already started but not running, stopping...", container_name))
-      M.stop_rag_service()
-    end
-    local cmd_ = string.format(
-      "docker run --platform=linux/amd64 -d -p 0.0.0.0:%d:%d --name %s -v %s:/data -v %s:/host:ro -e ALLOW_RESET=TRUE -e DATA_DIR=/data -e RAG_EMBED_PROVIDER=%s -e RAG_EMBED_ENDPOINT=%s -e RAG_EMBED_API_KEY=%s -e RAG_EMBED_MODEL=%s -e RAG_EMBED_EXTRA=%s -e RAG_LLM_PROVIDER=%s -e RAG_LLM_ENDPOINT=%s -e RAG_LLM_API_KEY=%s -e RAG_LLM_MODEL=%s -e RAG_LLM_EXTRA=%s %s %s",
-      M.get_rag_service_port(),
-      M.get_rag_service_port(),
-      container_name,
-      data_path,
-      host_mount(),
-      Config.rag_service.embed.provider,
-      Config.rag_service.embed.endpoint,
-      embed_api_key,
-      Config.rag_service.embed.model,
-      embed_extra,
-      Config.rag_service.llm.provider,
-      Config.rag_service.llm.endpoint,
-      llm_api_key,
-      Config.rag_service.llm.model,
-      llm_extra,
-      docker_option("docker_extra_args", ""),
-      image
-    )
-    vim.fn.jobstart(cmd_, {
-      detach = true,
-      on_exit = function(_, exit_code)
-        if exit_code ~= 0 then
-          Utils.error(string.format("container %s failed to start, exit code: %d", container_name, exit_code))
-        else
-          Utils.debug(string.format("container %s started", container_name))
-        end
-      end,
-    })
-  elseif M.get_rag_service_runner() == "nix" then
-    -- Check if service is already running
-    -- check if there is a process having "service_path" in its invokation
-    Utils.debug(string.format("launching %s with nix...", container_name))
-
-    -- can be launched beforehand via "uv run"
-    local args = {
-      "avante-rag-service",
-      service_path,
-      "--port",
-      port,
-      "--embed-provider",
-      Config.rag_service.embed.provider,
-      "--embed-extra",
-      embed_extra,
-      "--llm-provider",
-      Config.rag_service.llm.provider,
-      "--llm-model",
-      Config.rag_service.llm.model,
-    }
-    Utils.info("Starting rag service with: " .. table.concat(args, " "))
-    local ok, job_or_err = pcall(vim.system, args, {
-      detach = true,
-      env = {
-        DATA_DIR = service_path,
-        RAG_EMBED_ENDPOINT = Config.rag_service.embed.endpoint,
-        RAG_EMBED_API_KEY = embed_api_key,
-        RAG_EMBED_MODEL = Config.rag_service.embed.model,
-        RAG_LLM_ENDPOINT = Config.rag_service.llm.endpoint,
-        RAG_LLM_API_KEY = llm_api_key,
-        RAG_LLM_EXTRA = llm_extra,
-      },
-    }, function(res)
-      if res.code ~= 0 then
-        Utils.error(string.format("service %s failed to start, exit code: %d", container_name, res.code))
-      else
-        Utils.info(string.format("RAG service %s started successfully", container_name))
-      end
-    end)
-    if not ok then
-      Utils.error(
-        "Could not launch 'avante-rag-service', you can install it via nix profile add github:avante-corp/avante.nvim#ragService. Error:\n"
-          .. job_or_err
-      )
-    end
-  end
+  local start = type(runner) == "function" and runner or runners[runner]
+  if not start then error(string.format("Unsupported RAG service runner: %s", tostring(runner))) end
+  start(Config.rag_service)
 end
 
 function M.stop_rag_service()
