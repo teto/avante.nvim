@@ -86,7 +86,8 @@ function M.run_rag_service()
   end
   vim.schedule(function()
     Utils.info("Starting Rag Service ...")
-    M.launch_rag_service(add_resource_with_delay)
+    M.launch_rag_service()
+    add_resource_with_delay()
   end)
 end
 
@@ -124,8 +125,7 @@ function M.get_rag_service_runner() return (Config.rag_service and Config.rag_se
 ---Wrap it with `M.is_ready` to check beforehand it's already started or call
 ---Call `M.run_rag_service` that does it for you
 ---@see M.run_rag_service
----@param cb fun() called after the service started
-function M.launch_rag_service(cb)
+function M.launch_rag_service()
   --- If Config.rag_service.llm.api_key is nil or empty, llm_api_key will be an empty string.
   local llm_api_key = ""
   if
@@ -179,10 +179,7 @@ function M.launch_rag_service(cb)
     elseif result.stdout == "running" then
       Utils.debug(string.format("container %s already running", container_name))
       local current_image = M.get_current_image()
-      if current_image == image then
-        cb()
-        return
-      end
+      if current_image == image then return end
       Utils.debug(
         string.format(
           "container %s is running with different image: %s != %s, stopping...",
@@ -224,7 +221,6 @@ function M.launch_rag_service(cb)
           Utils.error(string.format("container %s failed to start, exit code: %d", container_name, exit_code))
         else
           Utils.debug(string.format("container %s started", container_name))
-          cb()
         end
       end,
     })
@@ -265,7 +261,6 @@ function M.launch_rag_service(cb)
         Utils.error(string.format("service %s failed to start, exit code: %d", container_name, res.code))
       else
         Utils.info(string.format("RAG service %s started successfully", container_name))
-        cb()
       end
     end)
     if not ok then
