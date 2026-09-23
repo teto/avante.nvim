@@ -1129,47 +1129,6 @@ function M.setup(opts)
         end
       end
     end
-    if k == "vendors" and v ~= nil then
-      for k2, v2 in pairs(v) do
-        opts.providers = opts.providers or {}
-        opts.providers[k2] = v2
-        Utils.warn(
-          string.format(
-            "[DEPRECATED] The configuration of `vendors.%s` should be placed in `providers.%s`. For detailed migration instructions, please visit: %s",
-            k2,
-            k2,
-            migration_url
-          ),
-          { title = "Avante" }
-        )
-        if
-          type(v2) == "table"
-          and v2.__inherited_from ~= nil
-          and M._defaults.providers[v2.__inherited_from] ~= nil
-        then
-          local extra_request_body = M._defaults.providers[v2.__inherited_from].extra_request_body
-          if extra_request_body ~= nil then
-            for k2_, v2_ in pairs(v2) do
-              if extra_request_body[k2_] ~= nil then
-                opts.providers[k2].extra_request_body = opts.providers[k2].extra_request_body or {}
-                opts.providers[k2].extra_request_body[k2_] = v2_
-                Utils.warn(
-                  string.format(
-                    "[DEPRECATED] The configuration of `vendors.%s.%s` should be placed in `providers.%s.extra_request_body.%s`; for detailed migration instructions, please visit: %s",
-                    k2,
-                    k2_,
-                    k2,
-                    k2_,
-                    migration_url
-                  ),
-                  { title = "Avante" }
-                )
-              end
-            end
-          end
-        end
-      end
-    end
   end
 
   local merged = vim.tbl_deep_extend(
