@@ -1095,40 +1095,6 @@ function M.setup(opts)
     end
   end
 
-  if opts.providers ~= nil then
-    for k, v in pairs(opts.providers) do
-      local extra_request_body
-      if type(v) == "table" then
-        if M._defaults.providers[k] ~= nil then
-          extra_request_body = M._defaults.providers[k].extra_request_body
-        elseif v.__inherited_from ~= nil then
-          if M._defaults.providers[v.__inherited_from] ~= nil then
-            extra_request_body = M._defaults.providers[v.__inherited_from].extra_request_body
-          end
-        end
-      end
-      if extra_request_body ~= nil then
-        for k_, v_ in pairs(v) do
-          if extra_request_body[k_] ~= nil then
-            opts.providers[k].extra_request_body = opts.providers[k].extra_request_body or {}
-            opts.providers[k].extra_request_body[k_] = v_
-            Utils.warn(
-              string.format(
-                "[DEPRECATED] The configuration of `providers.%s.%s` should be placed in `providers.%s.extra_request_body.%s`; for detailed migration instructions, please visit: %s",
-                k,
-                k_,
-                k,
-                k_,
-                migration_url
-              ),
-              { title = "Avante" }
-            )
-          end
-        end
-      end
-    end
-  end
-
   for k, v in pairs(opts) do
     if M._defaults.providers[k] ~= nil then
       opts.providers = opts.providers or {}
