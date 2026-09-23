@@ -12,7 +12,6 @@
 ---   vim.g.avante = {
 ---     rag_service = {
 ---       enabled = false,
----       host_mount = os.getenv("HOME"),
 ---       runner = "docker",
 ---       llm = {
 ---         provider = "openai",
@@ -28,7 +27,6 @@
 ---         model = "text-embedding-3-large",
 ---         extra = nil,
 ---       },
----       docker_extra_args = "",
 ---     },
 ---   })
 ---<
@@ -40,7 +38,9 @@
 ---
 --- OUTDATED DOCKER SPECIFIC COMMENTS:
 --- there was a docker build that is now outdated. It could be fixed if someone needs it
---- The `host_mount` path is mounted read-only into the service container.
+--- Docker mounts the home directory read-only into the service container.
+--- `host_mount`, `image`, and `docker_extra_args` are deprecated; remove them from your config.
+--- Existing values remain supported during the deprecation period.
 --- After changing RAG configuration, remove the old container so the new configuration is used:
 --->
 ---   docker rm -fv avante-rag-service
@@ -90,15 +90,16 @@ function M.run_rag_service()
   end)
 end
 
----@brief Return the docker image full name
----It is OUTDATED. If you need to use the docker image plea
-function M.get_rag_service_image()
-  if Config.rag_service and Config.rag_service.image then
-    return Config.rag_service.image
-  else
-    return "quay.io/yetoneful/avante-rag-service:0.0.11"
-  end
-end
+---Read deprecated Docker options without exposing them in the public config type.
+---@param key string
+---@param fallback string
+---@return string
+local function docker_option(key, fallback) return rawget(Config.rag_service or {}, key) or fallback end
+
+local function host_mount() return docker_option("host_mount", os.getenv("HOME")) end
+
+---@brief Return the Docker image full name.
+function M.get_rag_service_image() return docker_option("image", "quay.io/yetoneful/avante-rag-service:0.0.11") end
 
 function M.get_rag_service_port() return 20250 end
 
@@ -202,7 +203,7 @@ function M.launch_rag_service(cb)
       M.get_rag_service_port(),
       container_name,
       data_path,
-      Config.rag_service.host_mount,
+      host_mount(),
       Config.rag_service.embed.provider,
       Config.rag_service.embed.endpoint,
       embed_api_key,
@@ -213,7 +214,7 @@ function M.launch_rag_service(cb)
       llm_api_key,
       Config.rag_service.llm.model,
       llm_extra,
-      Config.rag_service.docker_extra_args,
+      docker_option("docker_extra_args", ""),
       image
     )
     vim.fn.jobstart(cmd_, {
@@ -304,7 +305,7 @@ function M.to_container_uri(uri)
   local scheme = M.get_scheme(uri)
   if scheme == "file" then
     local path = uri:match("^file://(.*)$")
-    local host_dir = Config.rag_service.host_mount
+    local host_dir = host_mount()
     if path:sub(1, #host_dir) == host_dir then path = "/host" .. path:sub(#host_dir + 1) end
     uri = string.format("file://%s", path)
   end
@@ -316,7 +317,7 @@ function M.to_local_uri(uri)
   local path = uri:match("^file:///host(.*)$")
 
   if scheme == "file" and path ~= nil then
-    local host_dir = Config.rag_service.host_mount
+    local host_dir = host_mount()
     local full_path = vim.fs.abspath(vim.fs.joinpath(host_dir, path:sub(2)))
     uri = string.format("file://%s", full_path)
   end
