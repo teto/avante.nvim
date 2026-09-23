@@ -1165,7 +1165,6 @@ Avante provides a RAG service, which is a tool for obtaining the required contex
 ```lua
   rag_service = { -- RAG Service configuration
     enabled = false, -- Enables the RAG service
-    host_mount = os.getenv("HOME"), -- Host mount path for the rag service (Docker will mount this path)
     runner = "docker", -- Runner for the RAG service (can use docker or nix)
     llm = { -- Language Model (LLM) configuration for RAG service
       provider = "openai", -- LLM provider
@@ -1183,7 +1182,6 @@ Avante provides a RAG service, which is a tool for obtaining the required contex
         max_embedding_tokens = 512, -- Maximum tokens per chunk sent to the embedding model
       },
     },
-    docker_extra_args = "", -- Extra arguments to pass to the docker command
   },
 ```
 
@@ -1199,12 +1197,9 @@ For detailed configuration of different model providers, you can check [here](./
 
 Additionally, RAG Service also depends on Docker! (For macOS users, OrbStack is recommended as a Docker alternative).
 
-`host_mount` is the path that will be mounted to the container, and the default is the home directory. The mount is required
-for the RAG service to access the files in the host machine. It is up to the user to decide if you want to mount the whole
-`/` directory, just the project directory, or the home directory. If you plan using avante and RAG event for projects
-stored outside your home directory, you will need to set the `host_mount` to the root directory of your file system.
-
-The mount will be read only.
+Docker mounts your home directory read-only by default. The `rag_service.host_mount`,
+`rag_service.image`, and `rag_service.docker_extra_args` options are deprecated;
+please remove them from your config. Existing values remain supported during the deprecation period.
 
 After changing the rag_service configuration, you need to manually delete the rag_service container to ensure the new configuration is used: `docker rm -fv avante-rag-service`
 

@@ -393,8 +393,8 @@ avante.Config.RagServiceModel                    *avante.Config.RagServiceModel*
 avante.Config.RagService                              *avante.Config.RagService*
 
     Fields: ~
-        {enabled}     (boolean)  Enable the RAG service.
-        {host_mount}  (string)
+        {enabled}  (boolean)  Enable the RAG service.
+        {runner}   ()
 
 
 avante.CoreConfig : avante.Config                            *avante.CoreConfig*
@@ -1480,7 +1480,6 @@ avante RAG service                                          *avante-rag-service*
    vim.g.avante = {
      rag_service = {
        enabled = false,
-       host_mount = os.getenv("HOME"),
        runner = "docker",
        llm = {
          provider = "openai",
@@ -1496,7 +1495,6 @@ avante RAG service                                          *avante-rag-service*
          model = "text-embedding-3-large",
          extra = nil,
        },
-       docker_extra_args = "",
      },
    })
 <
@@ -1508,7 +1506,9 @@ avante RAG service                                          *avante-rag-service*
 
  OUTDATED DOCKER SPECIFIC COMMENTS:
  there was a docker build that is now outdated. It could be fixed if someone needs it
- The `host_mount` path is mounted read-only into the service container.
+ Docker mounts the home directory read-only into the service container.
+ `host_mount`, `image`, and `docker_extra_args` are deprecated; remove them from your config.
+ Existing values remain supported during the deprecation period.
  After changing RAG configuration, remove the old container so the new configuration is used:
 >
    docker rm -fv avante-rag-service
@@ -1524,8 +1524,7 @@ M.run_rag_service()                         *avante-rag-service.run_rag_service*
 
 
 M.get_rag_service_image()             *avante-rag-service.get_rag_service_image*
-    @brief Return the docker image full name
-    It is OUTDATED. If you need to use the docker image plea
+    @brief Return the Docker image full name.
 
 
 M.get_rag_service_port()               *avante-rag-service.get_rag_service_port*

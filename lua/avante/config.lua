@@ -233,12 +233,9 @@ end
 
 ---@class avante.Config.RagService
 ---@field enabled boolean Enable the RAG service.
----@field host_mount string? Host path mounted read-only for the RAG service.
 ---@field runner "docker"|"nix"|string Runner used to launch the RAG service.
----@field image? string Docker image used when runner is `docker`.
 ---@field llm avante.Config.RagServiceModel Language model configuration.
 ---@field embed avante.Config.RagServiceModel Embedding model configuration.
----@field docker_extra_args string Extra arguments passed to `docker run`.
 
 ---@class avante.CoreConfig: avante.Config
 local M = {}
@@ -335,10 +332,7 @@ M._defaults = {
   ---@type avante.Config.RagService
   rag_service = { -- RAG service configuration
     enabled = false, -- Enables the RAG service
-    host_mount = os.getenv("HOME"), -- Host mount path for the RAG service (Docker will mount this path)
     runner = "docker", -- The runner for the RAG service (can use docker or nix)
-    -- The image to use to run the rag service if runner is docker
-    image = "quay.io/yetoneful/avante-rag-service:0.0.11",
     llm = { -- Configuration for the Language Model (LLM) used by the RAG service
       provider = "openai", -- The LLM provider
       endpoint = "https://api.openai.com/v1", -- The LLM API endpoint
@@ -353,7 +347,6 @@ M._defaults = {
       model = "text-embedding-3-large", -- The embedding model name
       extra = nil, -- Extra configuration options for the embedding model
     },
-    docker_extra_args = "", -- Extra arguments to pass to the docker command
   },
   ---@type avante.Config.WebSearchEngine
   web_search_engine = {
@@ -1060,6 +1053,20 @@ local function apply_model_selection(config, model_name, provider_name)
   end
 end
 
+---Warn only about explicitly supplied legacy options.
+---@param opts table
+local function warn_deprecated_rag_options(opts)
+  if type(opts.rag_service) ~= "table" then return end
+  for _, key in ipairs({ "host_mount", "image", "docker_extra_args" }) do
+    if opts.rag_service[key] ~= nil then
+      Utils.warn(
+        string.format("[DEPRECATED] `rag_service.%s` is deprecated. Please remove it from your config.", key),
+        { title = "Avante" }
+      )
+    end
+  end
+end
+
 ---@param opts table<string, any>|nil -- Optional table parameter for configuration settings
 function M.setup(opts)
   opts = opts or {} -- Ensure `opts` is defined with a default table
@@ -1072,6 +1079,7 @@ function M.setup(opts)
   end
 
   opts = vim.tbl_deep_extend("force", global_opts, opts or {})
+  warn_deprecated_rag_options(opts)
   local provider_configured = opts.provider ~= nil
 
   local migration_url = "https://github.com/yetone/avante.nvim/wiki/Provider-configuration-migration-guide"
@@ -1184,6 +1192,7 @@ end
 ---@param opts table<string, any>
 function M.override(opts)
   vim.validate("opts", opts, "table", true)
+  warn_deprecated_rag_options(opts or {})
   M._options = vim.tbl_deep_extend("force", M._options, opts or {})
 
   for k, v in pairs(M._options.providers) do
