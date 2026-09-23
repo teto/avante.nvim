@@ -34,6 +34,23 @@
 --- The RAG service lives in py/rag-service and be run via `uv run`.
 --- `nix build .#ragService` will also give you the "avante-rag-service" executable.
 ---
+--- `runner` also accepts a function receiving the merged RagService configuration.
+--- Start the service asynchronously on localhost:20250 and return; Avante polls readiness.
+--- API key fields remain environment-variable names; custom runners validate their own credentials.
+--- Custom runners use local file URIs. Stopping uses the existing process lookup for
+--- `/tmp/avante-rag-service`, so include that data path in the process arguments.
+--->
+---   require("avante").setup({
+---     rag_service = {
+---       runner = function(config)
+---         vim.system({ "avante-rag-service", "/tmp/avante-rag-service", "--port", "20250",
+---           "--llm-provider", config.llm.provider, "--embed-provider", config.embed.provider },
+---           { detach = true })
+---       end,
+---     },
+---   })
+---<
+---
 --- You can change the list of ignored files in the "$XDG_CONFIG_HOME/avante/rag-ignore" file.
 ---
 --- OUTDATED DOCKER SPECIFIC COMMENTS:
@@ -126,6 +143,11 @@ function M.get_rag_service_runner() return (Config.rag_service and Config.rag_se
 ---Call `M.run_rag_service` that does it for you
 ---@see M.run_rag_service
 function M.launch_rag_service()
+  local runner = M.get_rag_service_runner()
+  if type(runner) == "function" then
+    runner(Config.rag_service)
+    return
+  end
   --- If Config.rag_service.llm.api_key is nil or empty, llm_api_key will be an empty string.
   local llm_api_key = ""
   if
@@ -296,7 +318,7 @@ end
 ---Transforms URI when used with docker
 function M.to_container_uri(uri)
   local runner = M.get_rag_service_runner()
-  if runner == "nix" then return uri end
+  if runner ~= "docker" then return uri end
   local scheme = M.get_scheme(uri)
   if scheme == "file" then
     local path = uri:match("^file://(.*)$")
@@ -308,6 +330,7 @@ function M.to_container_uri(uri)
 end
 
 function M.to_local_uri(uri)
+  if M.get_rag_service_runner() ~= "docker" then return uri end
   local scheme = M.get_scheme(uri)
   local path = uri:match("^file:///host(.*)$")
 
