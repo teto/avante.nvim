@@ -1561,8 +1561,7 @@ M.get_rag_service_runner()           *avante-rag-service.get_rag_service_runner*
 
 M.launch_rag_service()                   *avante-rag-service.launch_rag_service*
     Attempts to start the service regardless of its current status.
-    Wrap it with `M.is_ready` to check beforehand it's already started or call
-    Call `M.run_rag_service` that does it for you
+    Call `M.run_rag_service` to also poll readiness and register the project.
 
     See: ~
         |M.run_rag_service|
