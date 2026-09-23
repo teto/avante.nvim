@@ -1502,6 +1502,23 @@ avante RAG service                                          *avante-rag-service*
  The RAG service lives in py/rag-service and be run via `uv run`.
  `nix build .#ragService` will also give you the "avante-rag-service" executable.
 
+ `runner` also accepts a function receiving the merged RagService configuration.
+ Start the service asynchronously on localhost:20250 and return; Avante polls readiness.
+ API key fields remain environment-variable names; custom runners validate their own credentials.
+ Custom runners use local file URIs. Stopping uses the existing process lookup for
+ `/tmp/avante-rag-service`, so include that data path in the process arguments.
+>
+   require("avante").setup({
+     rag_service = {
+       runner = function(config)
+         vim.system({ "avante-rag-service", "/tmp/avante-rag-service", "--port", "20250",
+           "--llm-provider", config.llm.provider, "--embed-provider", config.embed.provider },
+           { detach = true })
+       end,
+     },
+   })
+<
+
  You can change the list of ignored files in the "$XDG_CONFIG_HOME/avante/rag-ignore" file.
 
  OUTDATED DOCKER SPECIFIC COMMENTS:

@@ -233,7 +233,7 @@ end
 
 ---@class avante.Config.RagService
 ---@field enabled boolean Enable the RAG service.
----@field runner "docker"|"nix"|string Runner used to launch the RAG service.
+---@field runner "docker"|"nix"|string|fun(config: avante.Config.RagService) Runner used to launch the RAG service.
 ---@field llm avante.Config.RagServiceModel Language model configuration.
 ---@field embed avante.Config.RagServiceModel Embedding model configuration.
 
@@ -332,7 +332,7 @@ M._defaults = {
   ---@type avante.Config.RagService
   rag_service = { -- RAG service configuration
     enabled = false, -- Enables the RAG service
-    runner = "docker", -- The runner for the RAG service (can use docker or nix)
+    runner = "docker", -- Launch with docker, nix, or a function accepting the RAG config
     llm = { -- Configuration for the Language Model (LLM) used by the RAG service
       provider = "openai", -- The LLM provider
       endpoint = "https://api.openai.com/v1", -- The LLM API endpoint

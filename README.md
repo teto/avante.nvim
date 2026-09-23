@@ -1195,7 +1195,13 @@ The RAG Service can currently configure the LLM and embedding models separately.
 
 For detailed configuration of different model providers, you can check [here](./py/rag-service/README.md).
 
-Additionally, RAG Service also depends on Docker! (For macOS users, OrbStack is recommended as a Docker alternative).
+The default runner uses Docker. Set `runner = "nix"` to use an installed
+`avante-rag-service` executable, or supply a function receiving the merged RAG config.
+Custom functions must start the service asynchronously on localhost:20250 and return;
+Avante polls readiness and registers the project. API-key fields remain environment-variable
+names, and the function handles its own credential validation. See `:h avante-rag-service`
+for an example. Custom runners use local file URIs. Stopping retains the process lookup
+for `/tmp/avante-rag-service`; include that data path in your process arguments.
 
 Docker mounts your home directory read-only by default. The `rag_service.host_mount`,
 `rag_service.image`, and `rag_service.docker_extra_args` options are deprecated;
