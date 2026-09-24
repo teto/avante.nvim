@@ -108,20 +108,10 @@ function M.run_rag_service()
   end)
 end
 
----Read deprecated Docker options without exposing them in the public config type.
----@param key string
----@param fallback string
----@param config? avante.Config.RagService
----@return string
-local function docker_option(key, fallback, config) return rawget(config or Config.rag_service or {}, key) or fallback end
-
----@param config? avante.Config.RagService
-local function host_mount(config)
-  return docker_option("host_mount", assert(os.getenv("HOME"), "HOME is not set"), config)
-end
-
 ---@brief Return the Docker image full name.
-function M.get_rag_service_image() return docker_option("image", "quay.io/yetoneful/avante-rag-service:0.0.11") end
+function M.get_rag_service_image()
+  return rawget(Config.rag_service or {}, "image") or "quay.io/yetoneful/avante-rag-service:0.0.11"
+end
 
 function M.get_rag_service_port() return 20250 end
 
@@ -166,7 +156,7 @@ function M.start_docker(config, opts)
   opts = opts or {}
   local llm_api_key, llm_extra = model_options(config.llm)
   local embed_api_key, embed_extra = model_options(config.embed)
-  local image = docker_option("image", "quay.io/yetoneful/avante-rag-service:0.0.11", config)
+  local image = rawget(config, "image") or "quay.io/yetoneful/avante-rag-service:0.0.11"
   local data_path = M.get_data_path()
   local cmd = { "docker", "inspect", "--format", "{{.State.Status}}", container_name }
   local result = vim.system(cmd, { text = true }):wait()
@@ -197,7 +187,7 @@ function M.start_docker(config, opts)
     M.get_rag_service_port(),
     container_name,
     data_path,
-    opts.host_mount or host_mount(config),
+    opts.host_mount or rawget(config, "host_mount") or assert(os.getenv("HOME"), "HOME is not set"),
     config.embed.provider,
     config.embed.endpoint,
     embed_api_key,
@@ -208,7 +198,7 @@ function M.start_docker(config, opts)
     llm_api_key,
     config.llm.model,
     llm_extra,
-    opts.docker_extra_args or docker_option("docker_extra_args", "", config),
+    opts.docker_extra_args or rawget(config, "docker_extra_args") or "",
     image
   )
   vim.fn.jobstart(cmd_, {
@@ -312,7 +302,7 @@ function M.to_container_uri(uri)
   local scheme = M.get_scheme(uri)
   if scheme == "file" then
     local path = uri:match("^file://(.*)$")
-    local host_dir = host_mount()
+    local host_dir = rawget(Config.rag_service or {}, "host_mount") or assert(os.getenv("HOME"), "HOME is not set")
     if path:sub(1, #host_dir) == host_dir then path = "/host" .. path:sub(#host_dir + 1) end
     uri = string.format("file://%s", path)
   end
@@ -325,7 +315,7 @@ function M.to_local_uri(uri)
   local path = uri:match("^file:///host(.*)$")
 
   if scheme == "file" and path ~= nil then
-    local host_dir = host_mount()
+    local host_dir = rawget(Config.rag_service or {}, "host_mount") or assert(os.getenv("HOME"), "HOME is not set")
     local full_path = vim.fs.abspath(vim.fs.joinpath(host_dir, path:sub(2)))
     uri = string.format("file://%s", full_path)
   end
