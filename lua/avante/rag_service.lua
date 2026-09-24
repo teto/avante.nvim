@@ -12,6 +12,7 @@
 ---   vim.g.avante = {
 ---     rag_service = {
 ---       enabled = false,
+---       url = "http://localhost:20250",
 ---       runner = "docker",
 ---       llm = {
 ---         provider = "openai",
@@ -35,7 +36,7 @@
 --- `nix build .#ragService` will also give you the "avante-rag-service" executable.
 ---
 --- `runner` also accepts a function receiving the merged RagService configuration.
---- Start the service asynchronously on localhost:20250 and return; Avante polls readiness.
+--- Start the service asynchronously at the configured `url` and return; Avante polls readiness.
 --- API key fields remain environment-variable names; custom runners validate their own credentials.
 --- Custom runners use local file URIs. Stopping uses the existing process lookup for
 --- `/tmp/avante-rag-service`, so include that data path in the process arguments.
@@ -43,7 +44,8 @@
 ---   require("avante").setup({
 ---     rag_service = {
 ---       runner = function(config)
----         vim.system({ "avante-rag-service", "/tmp/avante-rag-service", "--port", "20250",
+---         local port = require("avante.rag_service").get_rag_service_port()
+---         vim.system({ "avante-rag-service", "/tmp/avante-rag-service", "--port", tostring(port),
 ---           "--llm-provider", config.llm.provider, "--embed-provider", config.embed.provider },
 ---           { detach = true })
 ---       end,
@@ -62,7 +64,8 @@
 --->
 ---   docker rm -fv avante-rag-service
 ---<
----Communication port is (for now) hardcoded to localhost:20250
+--- `url` is the HTTP(S) base URL used for requests. Its port is used when launching the service.
+--- Without an explicit port, HTTP uses 80 and HTTPS uses 443.
 ---@brief ]]
 
 local curl = require("plenary.curl")
@@ -108,26 +111,39 @@ function M.run_rag_service()
   end)
 end
 
----@brief Return the Docker image full name.
-function M.get_rag_service_image()
-  return rawget(Config.rag_service or {}, "image") or "quay.io/yetoneful/avante-rag-service:0.0.11"
+---Return vim.g.avante.rag_service.url without trailing slashes, defaulting to http://localhost:20250.
+---@return string
+function M.get_rag_service_url()
+  local config = (vim.g.avante or {}).rag_service or {}
+  local url = config.url or "http://localhost:20250"
+  return (url:gsub("/+$", ""))
 end
 
-function M.get_rag_service_port() return 20250 end
-
-function M.get_rag_service_url() return string.format("http://localhost:%d", M.get_rag_service_port()) end
+---Return the URL port, or the standard HTTP/HTTPS port when omitted.
+---@return integer
+function M.get_rag_service_port()
+  local url = M.get_rag_service_url()
+  local scheme, authority = url:match("^([%a][%w+.-]*)://([^/?#]+)")
+  scheme = scheme and scheme:lower()
+  if not authority or (scheme ~= "http" and scheme ~= "https") then error("rag_service.url must be an HTTP(S) URL") end
+  authority = authority:gsub("^.*@", "")
+  local host, suffix
+  if authority:sub(1, 1) == "[" then
+    host, suffix = authority:match("^(%[[^%]]+%])(.*)$")
+  else
+    host, suffix = authority:match("^([^:]+)(.*)$")
+  end
+  if not host or not suffix then error("rag_service.url must contain a valid host") end
+  if suffix == "" then return scheme == "https" and 443 or 80 end
+  local port = tonumber(suffix:match("^:(%d+)$"))
+  if not port or port < 1 or port > 65535 then error("rag_service.url port must be an integer between 1 and 65535") end
+  return port
+end
 
 function M.get_data_path()
   local p = Path:new(vim.fn.stdpath("data")):joinpath("avante/rag_service")
   if not p:exists() then p:mkdir({ parents = true }) end
   return p
-end
-
-function M.get_current_image()
-  local cmd = { "docker", "inspect", "--format", "{{.Config.Image}}", container_name }
-  local result = vim.system(cmd, { text = true }):wait()
-  if result.code ~= 0 or result.stdout == "" then return nil end
-  return result.stdout
 end
 
 function M.get_rag_service_runner() return (Config.rag_service and Config.rag_service.runner) or "docker" end
@@ -149,6 +165,13 @@ end
 ---@field host_mount? string Host path mounted read-only at /host.
 ---@field docker_extra_args? string Extra arguments passed to docker run.
 
+local function get_current_image()
+  local cmd = { "docker", "inspect", "--format", "{{.Config.Image}}", container_name }
+  local result = vim.system(cmd, { text = true }):wait()
+  if result.code ~= 0 or result.stdout == "" then return nil end
+  return result.stdout
+end
+
 ---Start the RAG service via Docker. Explicit options override deprecated config values.
 ---@param config avante.Config.RagService
 ---@param opts? avante.RagServiceDockerOptions Defaults to legacy config values, then HOME and no extra arguments.
@@ -165,7 +188,7 @@ function M.start_docker(config, opts)
     Utils.debug(string.format("container %s not found, starting...", container_name))
   elseif result.stdout == "running" then
     Utils.debug(string.format("container %s already running", container_name))
-    local current_image = M.get_current_image()
+    local current_image = get_current_image()
     if current_image == image then return end
     Utils.debug(
       string.format(
@@ -184,7 +207,7 @@ function M.start_docker(config, opts)
   local cmd_ = string.format(
     "docker run --platform=linux/amd64 -d -p 0.0.0.0:%d:%d --name %s -v %s:/data -v %s:/host:ro -e ALLOW_RESET=TRUE -e DATA_DIR=/data -e RAG_EMBED_PROVIDER=%s -e RAG_EMBED_ENDPOINT=%s -e RAG_EMBED_API_KEY=%s -e RAG_EMBED_MODEL=%s -e RAG_EMBED_EXTRA=%s -e RAG_LLM_PROVIDER=%s -e RAG_LLM_ENDPOINT=%s -e RAG_LLM_API_KEY=%s -e RAG_LLM_MODEL=%s -e RAG_LLM_EXTRA=%s %s %s",
     M.get_rag_service_port(),
-    M.get_rag_service_port(),
+    20250, -- The Docker image listens on its default internal port.
     container_name,
     data_path,
     opts.host_mount or rawget(config, "host_mount") or assert(os.getenv("HOME"), "HOME is not set"),
@@ -274,12 +297,15 @@ function M.launch_rag_service()
   start(Config.rag_service)
 end
 
+--- Stop the service. It is not reliable at the moment so you might need to kill
+--- the process yourself
 function M.stop_rag_service()
   if M.get_rag_service_runner() == "docker" then
     local cmd = { "docker", "inspect", "--format", "{{.State.Status}}", container_name }
     local result = vim.system(cmd, { text = true }):wait().stdout
     if result ~= "" then vim.system({ "docker", "rm", "-fv", container_name }):wait() end
   else
+    -- TODO search process by port instead
     local pid = vim.system({ "pgrep", "-f", service_path }, { text = true }):wait().stdout
     if pid ~= "" then
       vim.system({ "kill", "-9", pid }):wait()
@@ -309,6 +335,7 @@ function M.to_container_uri(uri)
   return uri
 end
 
+---Transforms URI when used with docker
 function M.to_local_uri(uri)
   if M.get_rag_service_runner() ~= "docker" then return uri end
   local scheme = M.get_scheme(uri)

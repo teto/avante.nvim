@@ -5,6 +5,7 @@ describe("RagService", function()
   local RagService
   local Config_mock
   local stubs
+  local previous_avante
 
   local function replace(target, key, implementation)
     local value = stub(target, key, implementation)
@@ -13,6 +14,8 @@ describe("RagService", function()
   end
 
   before_each(function()
+    previous_avante = vim.g.avante
+    vim.g.avante = nil
     stubs = {}
     -- Load the module before each test
     RagService = require("avante.rag_service")
@@ -23,6 +26,7 @@ describe("RagService", function()
   end)
 
   after_each(function()
+    vim.g.avante = previous_avante
     for i = #stubs, 1, -1 do
       stubs[i]:revert()
     end
@@ -47,6 +51,79 @@ describe("RagService", function()
     end)
   end)
 
+  describe("service URL", function()
+    it("reads the global URL on each call rather than the merged config", function()
+      Config_mock.rag_service.url = "http://localhost:7070"
+      vim.g.avante = { rag_service = { url = "https://rag.example:8443/" } }
+      assert.equals("https://rag.example:8443", RagService.get_rag_service_url())
+      assert.equals(8443, RagService.get_rag_service_port())
+      vim.g.avante = { rag_service = { url = "http://localhost:9090" } }
+      assert.equals(9090, RagService.get_rag_service_port())
+    end)
+
+    it("uses the default when global RAG configuration is absent", function()
+      for _, config in ipairs({ {}, { rag_service = {} } }) do
+        vim.g.avante = config
+        assert.equals("http://localhost:20250", RagService.get_rag_service_url())
+        assert.equals(20250, RagService.get_rag_service_port())
+      end
+    end)
+
+    it("preserves the default address and port", function()
+      assert.equals("http://localhost:20250", RagService.get_rag_service_url())
+      assert.equals(20250, RagService.get_rag_service_port())
+    end)
+
+    for _, case in ipairs({
+      { "http://rag.example:8080", 8080 },
+      { "https://rag.example:8443/base/", 8443 },
+      { "http://rag.example", 80 },
+      { "https://rag.example/base:9000", 443 },
+      { "http://[::1]:9090", 9090 },
+      { "https://[::1]/", 443 },
+    }) do
+      it("parses the port from " .. case[1], function()
+        vim.g.avante = { rag_service = { url = case[1] } }
+        assert.equals(case[2], RagService.get_rag_service_port())
+        assert.equals(case[1]:gsub("/+$", ""), RagService.get_rag_service_url())
+      end)
+    end
+
+    for _, url in ipairs({
+      "localhost:20250",
+      "ftp://host:21",
+      "http://host:bad",
+      "http://host:0",
+      "http://host:65536",
+    }) do
+      it("rejects an invalid launch URL: " .. url, function()
+        vim.g.avante = { rag_service = { url = url } }
+        assert.has_error(function() RagService.get_rag_service_port() end)
+      end)
+    end
+
+    it("uses the configured URL for health and resource requests", function()
+      vim.g.avante = { rag_service = { url = "https://rag.example:8443/base/" } }
+      local system = replace(vim, "system", function()
+        return { wait = function() return { code = 0 } end }
+      end)
+      local get = replace(
+        require("plenary.curl"),
+        "get",
+        function() return { status = 200, body = '{"resources":[],"total_count":0}' } end
+      )
+      RagService.is_ready()
+      assert.stub(system).was_called_with(
+        { "curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "https://rag.example:8443/base/api/health" },
+        { text = true }
+      )
+      RagService.get_resources()
+      assert.stub(get).was_called_with("https://rag.example:8443/base/api/v1/resources", {
+        headers = { ["Content-Type"] = "application/json" },
+      })
+    end)
+  end)
+
   describe("built-in runners", function()
     local errors
     before_each(function()
@@ -68,6 +145,27 @@ describe("RagService", function()
         RagService.launch_rag_service()
         assert.stub(start).was_called_with(Config_mock.rag_service)
       end
+    end)
+
+    it("uses the global URL when starting Nix and Docker directly", function()
+      local config = vim.deepcopy(Config_mock.rag_service)
+      config.url = "http://localhost:7070"
+      vim.g.avante = { rag_service = { url = "http://localhost:9090" } }
+      local system = replace(vim, "system", function()
+        return { wait = function() return { code = 0, stdout = "" } end }
+      end)
+      RagService.start_nix(config)
+      assert.equals(9090, system.calls[1].vals[1][4])
+      replace(RagService, "get_data_path", function() return "/data-path" end)
+      replace(RagService, "stop_rag_service", function() end)
+      local command
+      replace(vim.fn, "jobstart", function(cmd)
+        command = cmd
+        return 1
+      end)
+      RagService.start_docker(config)
+      assert.is_truthy(command:find("-p 0.0.0.0:9090:20250", 1, true))
+      assert.equals(9090, RagService.get_rag_service_port())
     end)
 
     it("accepts Docker options separately without modifying the config", function()

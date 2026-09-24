@@ -233,6 +233,7 @@ end
 
 ---@class avante.Config.RagService
 ---@field enabled boolean Enable the RAG service.
+---@field url string HTTP(S) base URL of the RAG service. Defaults to http://localhost:20250.
 ---@field runner "docker"|"nix"|string|fun(config: avante.Config.RagService) Runner used to launch the RAG service.
 ---@field llm avante.Config.RagServiceModel Language model configuration.
 ---@field embed avante.Config.RagServiceModel Embedding model configuration.
@@ -332,6 +333,7 @@ M._defaults = {
   ---@type avante.Config.RagService
   rag_service = { -- RAG service configuration
     enabled = false, -- Enables the RAG service
+    url = "http://localhost:20250",
     runner = "docker", -- Launch with docker, nix, or a function accepting the RAG config
     llm = { -- Configuration for the Language Model (LLM) used by the RAG service
       provider = "openai", -- The LLM provider
