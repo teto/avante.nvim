@@ -1,11 +1,19 @@
 local mock = require("luassert.mock")
-local match = require("luassert.match")
+local stub = require("luassert.stub")
 
 describe("RagService", function()
   local RagService
   local Config_mock
+  local stubs
+
+  local function replace(target, key, implementation)
+    local value = stub(target, key, implementation)
+    table.insert(stubs, value)
+    return value
+  end
 
   before_each(function()
+    stubs = {}
     -- Load the module before each test
     RagService = require("avante.rag_service")
 
@@ -15,6 +23,9 @@ describe("RagService", function()
   end)
 
   after_each(function()
+    for i = #stubs, 1, -1 do
+      stubs[i]:revert()
+    end
     -- Clean up after each test
     package.loaded["avante.rag_service"] = nil
     mock.revert(Config_mock)
@@ -50,6 +61,40 @@ describe("RagService", function()
       errors = replace(utils, "error", function() end)
     end)
 
+    it("dispatches through the exported starter functions", function()
+      for _, runner in ipairs({ "docker", "nix" }) do
+        Config_mock.rag_service.runner = runner
+        local start = replace(RagService, "start_" .. runner, function() end)
+        RagService.launch_rag_service()
+        assert.stub(start).was_called_with(Config_mock.rag_service)
+      end
+    end)
+
+    it("accepts Docker options separately without modifying the config", function()
+      local config = Config_mock.rag_service
+      config.host_mount = "/legacy"
+      config.docker_extra_args = "--legacy-argument"
+      local original = vim.deepcopy(config)
+      replace(RagService, "get_data_path", function() return "/data-path" end)
+      replace(RagService, "stop_rag_service", function() end)
+      replace(vim, "system", function()
+        return { wait = function() return { code = 0, stdout = "" } end }
+      end)
+      local commands = {}
+      replace(vim.fn, "jobstart", function(cmd)
+        table.insert(commands, cmd)
+        return 1
+      end)
+      RagService.start_docker(config, { host_mount = "/explicit", docker_extra_args = "--network=host" })
+      assert.is_truthy(commands[1]:find("-v /explicit:/host:ro", 1, true))
+      assert.is_truthy(commands[1]:find("--network=host", 1, true))
+      assert.is_nil(commands[1]:find("--legacy-argument", 1, true))
+      RagService.start_docker(config, { docker_extra_args = "" })
+      assert.is_truthy(commands[2]:find("-v /legacy:/host:ro", 1, true))
+      assert.is_nil(commands[2]:find("--legacy-argument", 1, true))
+      assert.same(original, config)
+    end)
+
     it("dispatches Nix with provider arguments and resolved credentials without mutating config", function()
       local config = Config_mock.rag_service
       config.llm.api_key = "LLM_KEY"
@@ -73,21 +118,18 @@ describe("RagService", function()
           "--llm-model",
           "llm-model",
         }, args)
-        assert.same(
-          {
-            detach = true,
-            env = {
-              DATA_DIR = "/tmp/avante-rag-service",
-              RAG_EMBED_ENDPOINT = "http://embed",
-              RAG_EMBED_API_KEY = "EMBED_KEY-value",
-              RAG_EMBED_MODEL = "embed-model",
-              RAG_LLM_ENDPOINT = "https://llm",
-              RAG_LLM_API_KEY = "LLM_KEY-value",
-              RAG_LLM_EXTRA = string.format("%q", vim.json.encode(config.llm.extra)),
-            },
+        assert.same({
+          detach = true,
+          env = {
+            DATA_DIR = "/tmp/avante-rag-service",
+            RAG_EMBED_ENDPOINT = "http://embed",
+            RAG_EMBED_API_KEY = "EMBED_KEY-value",
+            RAG_EMBED_MODEL = "embed-model",
+            RAG_LLM_ENDPOINT = "https://llm",
+            RAG_LLM_API_KEY = "LLM_KEY-value",
+            RAG_LLM_EXTRA = string.format("%q", vim.json.encode(config.llm.extra)),
           },
-          opts
-        )
+        }, opts)
         on_exit({ code = 0 })
       end)
       RagService.launch_rag_service()

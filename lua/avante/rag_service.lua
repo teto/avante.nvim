@@ -155,8 +155,15 @@ local function model_options(model)
   return api_key, extra
 end
 
+---@class avante.RagServiceDockerOptions
+---@field host_mount? string Host path mounted read-only at /host.
+---@field docker_extra_args? string Extra arguments passed to docker run.
+
+---Start the RAG service via Docker. Explicit options override deprecated config values.
 ---@param config avante.Config.RagService
-local function start_docker(config)
+---@param opts? avante.RagServiceDockerOptions Defaults to legacy config values, then HOME and no extra arguments.
+function M.start_docker(config, opts)
+  opts = opts or {}
   local llm_api_key, llm_extra = model_options(config.llm)
   local embed_api_key, embed_extra = model_options(config.embed)
   local image = docker_option("image", "quay.io/yetoneful/avante-rag-service:0.0.11", config)
@@ -190,7 +197,7 @@ local function start_docker(config)
     M.get_rag_service_port(),
     container_name,
     data_path,
-    host_mount(config),
+    opts.host_mount or host_mount(config),
     config.embed.provider,
     config.embed.endpoint,
     embed_api_key,
@@ -201,7 +208,7 @@ local function start_docker(config)
     llm_api_key,
     config.llm.model,
     llm_extra,
-    docker_option("docker_extra_args", "", config),
+    opts.docker_extra_args or docker_option("docker_extra_args", "", config),
     image
   )
   vim.fn.jobstart(cmd_, {
@@ -216,8 +223,9 @@ local function start_docker(config)
   })
 end
 
+---Start the RAG service using the installed avante-rag-service executable.
 ---@param config avante.Config.RagService
-local function start_nix(config)
+function M.start_nix(config)
   local llm_api_key, llm_extra = model_options(config.llm)
   local embed_api_key, embed_extra = model_options(config.embed)
   local port = M.get_rag_service_port()
@@ -265,12 +273,11 @@ local function start_nix(config)
   end
 end
 
-local runners = { docker = start_docker, nix = start_nix }
-
 ---Attempts to start the service regardless of its current status.
 ---Call `M.run_rag_service` to also poll readiness and register the project.
 ---@see M.run_rag_service
 function M.launch_rag_service()
+  local runners = { docker = M.start_docker, nix = M.start_nix }
   local runner = M.get_rag_service_runner()
   local start = type(runner) == "function" and runner or runners[runner]
   if not start then error(string.format("Unsupported RAG service runner: %s", tostring(runner))) end
