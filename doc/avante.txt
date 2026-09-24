@@ -1559,6 +1559,28 @@ M.get_current_image()                     *avante-rag-service.get_current_image*
 M.get_rag_service_runner()           *avante-rag-service.get_rag_service_runner*
 
 
+avante.RagServiceDockerOptions                  *avante.RagServiceDockerOptions*
+
+    Fields: ~
+        {host_mount?}         (string)  Host path mounted read-only at /host.
+        {docker_extra_args?}  (string)  Extra arguments passed to docker run.
+
+
+M.start_docker({config}, {opts?})              *avante-rag-service.start_docker*
+    Start the RAG service via Docker. Explicit options override deprecated config values.
+
+    Parameters: ~
+        {config}  (avante.Config.RagService)
+        {opts?}   (avante.RagServiceDockerOptions)  Defaults to legacy config values, then HOME and no extra arguments.
+
+
+M.start_nix({config})                             *avante-rag-service.start_nix*
+    Start the RAG service using the installed avante-rag-service executable.
+
+    Parameters: ~
+        {config}  (avante.Config.RagService)
+
+
 M.launch_rag_service()                   *avante-rag-service.launch_rag_service*
     Attempts to start the service regardless of its current status.
     Call `M.run_rag_service` to also poll readiness and register the project.
