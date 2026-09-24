@@ -1165,6 +1165,7 @@ Avante provides a RAG service, which is a tool for obtaining the required contex
 ```lua
   rag_service = { -- RAG Service configuration
     enabled = false, -- Enables the RAG service
+    url = "http://localhost:20250", -- Base URL used to communicate with the RAG service
     runner = "docker", -- Runner for the RAG service (can use docker or nix)
     llm = { -- Language Model (LLM) configuration for RAG service
       provider = "openai", -- LLM provider
@@ -1197,11 +1198,18 @@ For detailed configuration of different model providers, you can check [here](./
 
 The default runner uses Docker. Set `runner = "nix"` to use an installed
 `avante-rag-service` executable, or supply a function receiving the merged RAG config.
-Custom functions must start the service asynchronously on localhost:20250 and return;
+Custom functions must start the service asynchronously at the configured URL and return;
 Avante polls readiness and registers the project. API-key fields remain environment-variable
 names, and the function handles its own credential validation. See `:h avante-rag-service`
 for an example. Custom runners use local file URIs. Stopping retains the process lookup
 for `/tmp/avante-rag-service`; include that data path in your process arguments.
+
+Set `vim.g.avante.rag_service.url` to configure the service address; the URL and port
+helpers read this global setting directly. It defaults to `http://localhost:20250`.
+Its port is used for Nix startup and
+Docker's published host port (the container still listens on port 20250).
+URLs without an explicit port use 80 for HTTP or 443 for HTTPS. Requests preserve
+the configured host and any base path; trailing slashes are removed before appending API paths.
 
 Docker mounts your home directory read-only by default. The `rag_service.host_mount`,
 `rag_service.image`, and `rag_service.docker_extra_args` options are deprecated;

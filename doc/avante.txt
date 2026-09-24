@@ -394,6 +394,7 @@ avante.Config.RagService                              *avante.Config.RagService*
 
     Fields: ~
         {enabled}  (boolean)  Enable the RAG service.
+        {url}      (string)   HTTP(S) base URL of the RAG service. Defaults to http://localhost:20250.
         {runner}   ()
 
 
@@ -1480,6 +1481,7 @@ avante RAG service                                          *avante-rag-service*
    vim.g.avante = {
      rag_service = {
        enabled = false,
+       url = "http://localhost:20250",
        runner = "docker",
        llm = {
          provider = "openai",
@@ -1503,7 +1505,7 @@ avante RAG service                                          *avante-rag-service*
  `nix build .#ragService` will also give you the "avante-rag-service" executable.
 
  `runner` also accepts a function receiving the merged RagService configuration.
- Start the service asynchronously on localhost:20250 and return; Avante polls readiness.
+ Start the service asynchronously at the configured `url` and return; Avante polls readiness.
  API key fields remain environment-variable names; custom runners validate their own credentials.
  Custom runners use local file URIs. Stopping uses the existing process lookup for
  `/tmp/avante-rag-service`, so include that data path in the process arguments.
@@ -1511,7 +1513,8 @@ avante RAG service                                          *avante-rag-service*
    require("avante").setup({
      rag_service = {
        runner = function(config)
-         vim.system({ "avante-rag-service", "/tmp/avante-rag-service", "--port", "20250",
+         local port = require("avante.rag_service").get_rag_service_port()
+         vim.system({ "avante-rag-service", "/tmp/avante-rag-service", "--port", tostring(port),
            "--llm-provider", config.llm.provider, "--embed-provider", config.embed.provider },
            { detach = true })
        end,
@@ -1530,7 +1533,8 @@ avante RAG service                                          *avante-rag-service*
 >
    docker rm -fv avante-rag-service
 <
-Communication port is (for now) hardcoded to localhost:20250
+ `url` is the HTTP(S) base URL used for requests. Its port is used when launching the service.
+ Without an explicit port, HTTP uses 80 and HTTPS uses 443.
 
 M.run_rag_service()                         *avante-rag-service.run_rag_service*
     Starts the rag service if not already running
@@ -1540,20 +1544,21 @@ M.run_rag_service()                         *avante-rag-service.run_rag_service*
         |launch_rag_service|
 
 
-M.get_rag_service_image()             *avante-rag-service.get_rag_service_image*
-    @brief Return the Docker image full name.
+M.get_rag_service_url()                 *avante-rag-service.get_rag_service_url*
+    Return vim.g.avante.rag_service.url without trailing slashes, defaulting to http://localhost:20250.
+
+    Returns: ~
+        (string)
 
 
 M.get_rag_service_port()               *avante-rag-service.get_rag_service_port*
+    Return the URL port, or the standard HTTP/HTTPS port when omitted.
 
-
-M.get_rag_service_url()                 *avante-rag-service.get_rag_service_url*
+    Returns: ~
+        (integer)
 
 
 M.get_data_path()                             *avante-rag-service.get_data_path*
-
-
-M.get_current_image()                     *avante-rag-service.get_current_image*
 
 
 M.get_rag_service_runner()           *avante-rag-service.get_rag_service_runner*
@@ -1590,6 +1595,8 @@ M.launch_rag_service()                   *avante-rag-service.launch_rag_service*
 
 
 M.stop_rag_service()                       *avante-rag-service.stop_rag_service*
+     Stop the service. It is not reliable at the moment so you might need to kill
+     the process yourself
 
 
 M.get_scheme()                                   *avante-rag-service.get_scheme*
@@ -1601,6 +1608,7 @@ M.to_container_uri()                       *avante-rag-service.to_container_uri*
 
 
 M.to_local_uri()                               *avante-rag-service.to_local_uri*
+    Transforms URI when used with docker
 
 
 M.is_ready()                                       *avante-rag-service.is_ready*
