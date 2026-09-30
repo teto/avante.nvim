@@ -255,11 +255,11 @@ function M.agent_loop(opts)
   M._stream(stream_options)
 end
 
---- Loads prompt from various locations (avante.md, )
+--- Loads prompt from various locations (see config.instructions_file, defaults to avante.md, )
 ---@param opts AvanteGeneratePromptsOptions
 ---@return AvantePromptOptions
 function M.generate_prompts(opts)
-  local project_instruction_file = Config.instructions_file or "avante.md"
+  local project_instruction_file = Config.instructions_file
   local project_root = tostring(Utils.root.get())
   local instruction_file_path = vim.fs.joinpath(project_root, project_instruction_file)
 
