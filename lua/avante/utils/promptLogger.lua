@@ -123,6 +123,10 @@ end
 
 function M.on_log_retrieve(delta)
   return function()
+    if #filtered_entries == 0 then
+      vim.notify("No log entry found.", vim.log.levels.WARN)
+      return
+    end
     update_current_input()
     local res = _read_log(delta)
     if not res or not res.input then
