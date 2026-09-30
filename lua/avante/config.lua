@@ -37,7 +37,7 @@
 ---Common options:
 ---
 --->lua
----   require("avante").setup({
+---   vim.g.avante = {
 ---     provider = "claude",
 ---     mode = "agentic",
 ---     instructions_file = "avante.md",
@@ -79,7 +79,7 @@
 ---
 ---Avante supports different interfaces that act as *vim.ui.input()*. See *avante.AvanteInput* for the supported options, here is :
 --->
----   require("avante").setup({
+---   vim.g.avante = {
 ---     input = {
 ---       provider = "snacks",
 ---       provider_opts = {
@@ -95,7 +95,7 @@
 ---Avante supports `native`, `fzf_lua`, `mini_pick`, `snacks`, `telescope`, or
 ---a custom function:
 --->
----   require("avante").setup({
+---   vim.g.avante = {
 ---     selector = {
 ---       provider = "fzf_lua",
 ---       provider_opts = {},
@@ -109,7 +109,7 @@
 ---Fast Apply uses a specialized apply model for faster code edits. Enable it
 ---and configure Morph:
 --->
----   require("avante").setup({
+---   vim.g.avante = {
 ---     behaviour = {
 ---       enable_fastapply = true,
 ---     },
@@ -129,7 +129,7 @@
 ---Configure ACP providers with `acp_providers`:
 ---
 --->lua
----   require("avante").setup({
+---   vim.g.avante = {
 ---     acp_providers = {
 ---       ["gemini-cli"] = {
 ---         command = "gemini",
@@ -285,7 +285,7 @@ M.instructions_file = "avante.md"
 --- })
 ---
 --- -- Example: Override with prompts from a function (dynamic directory)
---- require("avante").setup({
+--- vim.g.avante = {
 ---   override_prompt_dir = function()
 ---     -- Your logic to determine the prompt directory
 ---     return vim.fn.expand("~/.config/nvim/my_dynamic_prompts")
