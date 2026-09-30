@@ -1,3 +1,43 @@
+---@mod avante-tools avante tools
+---@brief [[
+---
+--- Agentic mode enables tool use. If a model does not support tools, disable
+--- them for that provider with:
+--->lua
+---   vim.g.avante = {
+---     providers = {
+---       claude = {
+---         disable_tools = true,
+---       },
+---     },
+---   })
+---<
+---
+---You can see enabled tools with:
+---
+--->lua
+---   vim.print(require'avante.llm_tools'.get_tool_names())
+---<
+---
+---See |avante-custom-tools| on how to add your own tools.
+---
+---You can disable tools like this:
+--->lua
+---  vim.g.avante = {
+---   disabled_tools = { "web_search_tavily" }
+---  }
+---<
+---@brief ]]
+---@tag avante-tools-builtins
+---@brief [[
+--- Built-in tool names include:
+--->
+---   rag_search, python, git_diff, git_commit, glob, search_keyword,
+---   read_file_toplevel_symbols, read_file, create_file, move_path, copy_path,
+---   delete_path, create_dir, bash, web_search_tavily, fetch
+---<
+---
+---@brief ]]
 ---@mod avante-custom-tools Custom tools
 ---@brief [[
 ---Custom tools can run shell commands, scripts, or Lua functions
@@ -39,46 +79,6 @@
 ---<
 ---@brief ]]
 ---
----@mod avante-tools avante tools
----@brief [[
----
---- Agentic mode enables tool use. If a model does not support tools, disable
---- them for that provider with:
---->lua
----   vim.g.avante = {
----     providers = {
----       claude = {
----         disable_tools = true,
----       },
----     },
----   })
----<
----
----You can see enabled tools with:
----
---->lua
----   vim.print(require'avante.llm_tools'.get_tool_names())
----<
----
----See |avante-custom-tools| on how to add your own tools.
----
----You can disable tools like this:
---->lua
----  vim.g.avante = {
----   disabled_tools = { "web_search_tavily" }
----  }
----<
----@brief ]]
----@tag avante-tools-builtins
----@brief [[
---- Built-in tool names include:
---->
----   rag_search, python, git_diff, git_commit, glob, search_keyword,
----   read_file_toplevel_symbols, read_file, create_file, move_path, copy_path,
----   delete_path, create_dir, bash, web_search_tavily, fetch
----<
----
----@brief ]]
 
 local Utils = require("avante.utils")
 local Path = require("plenary.path")
