@@ -249,7 +249,8 @@ M.instructions_file = "avante.md"
 ---@field debug boolean
 --- will keep requests and responses on the filesystem. Check the logs to find their paths
 ---@field log_level vim.log.levels
----@field public session_recovery any
+---@field public session_recovery any TODO
+---@field memory_summary_provider any TODO
 --- Avante.nvim provides two interaction modes:
 --- - *agentic* (default): Uses AI tools to automatically generate and apply code changes
 --- - *legacy*: Uses the traditional planning method without automatic tool execution
@@ -279,7 +280,7 @@ M.instructions_file = "avante.md"
 --- override_prompt_dir allows you to specify a directory containing your own custom prompt templates, which will override the built-in templates. This is useful if you want to maintain a set of custom prompts outside of your Neovim configuration.
 ---<lua
 --- -- Example: Override with prompts from a specific directory
---- require("avante").setup({
+--- vim.g.avante = {
 ---   override_prompt_dir = vim.fn.expand("~/.config/nvim/avante_prompts"),
 --- })
 ---
