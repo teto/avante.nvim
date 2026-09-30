@@ -1,4 +1,5 @@
 ---@mod avante-nvim avante.nvim
+---@tag avante
 ---
 ---@brief [[
 --- avante.nvim is a Neovim plugin designed to emulate the behaviour of the Cursor
@@ -30,6 +31,8 @@
 --- Mandatory dependencies are:
 --- - 'nvim-lua/plenary.nvim'
 --- - 'MunifTanjim/nui.nvim'.
+--- - "ColinKennedy/mega.cmdparse"
+--- - "ColinKennedy/mega.logging" (as dependency of cmdparse)
 ---
 --- Optional dependencies are:
 --- - 'MeanderingProgrammer/render-markdown.nvim'
@@ -53,7 +56,12 @@
 ---Therefore, Avante’s Zen Mode was born! It looks like a Vibe Coding Agent CLI but it is completely Neovim underneath. So you can use your muscle-memory Vim operations and those rich and mature Neovim plugins on it. At the same time, by leveraging [ACP](https://github.com/yetone/avante.nvim#acp-support) it has all capabilities of claude code / gemini-cli / codex! Why not enjoy both?
 ---Now all you need to do is alias this command to avante; then every time you simply type avante just like using claude code and enter Avante’s Zen Mode!
 ---@brief ]]
----@mod avante
+---@mod avante-events User events
+---@brief [[
+---Avante triggers user events at various points in the codebase. The list might not be exhaustive:
+--- - AvanteRequestLogin: when avante needs an API key for instance
+---@brief ]]
+---@mod avante-init
 
 local api = vim.api
 
