@@ -96,6 +96,7 @@ docgen:
 		lua/avante/providers/ollama.lua \
 		lua/avante/providers/openai.lua \
 		lua/avante/html2md.lua \
+		lua/avante/path.lua \
 		lua/avante/faq.lua \
 		> doc/avante.txt
 	nvim -u NONE -i NONE --headless +'helptags doc' +'quit!'
