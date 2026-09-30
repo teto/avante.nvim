@@ -1,6 +1,7 @@
 ==============================================================================
 avante.nvim                                                        *avante-nvim*
 
+                                                                        *avante*
  avante.nvim is a Neovim plugin designed to emulate the behaviour of the Cursor
  AI IDE. It provides AI-driven code suggestions, chat, code editing, and the
  ability to apply recommendations directly to source files.
@@ -23,7 +24,8 @@ avante.nvim ··································
 Installation ············································· |avante-installation|
 Requirements ············································· |avante-requirements|
 Usage ··························································· |avante-usage|
- ······································································ |avante|
+User events ···················································· |avante-events|
+ ································································· |avante-init|
 Configuration via variable ······································ |vim.g.avante|
 Configuration ·················································· |avante-config|
 Avante API ························································ |avante-api|
@@ -32,8 +34,8 @@ Sidebar ····································
 Slash commands ·········································· |avante-slashcommands|
 avante completion sources ·································· |avante-completion|
 avante RAG service ········································ |avante-rag-service|
-Custom tools ············································· |avante-custom-tools|
 avante tools ···················································· |avante-tools|
+Custom tools ············································· |avante-custom-tools|
 Avante bash ················································ |avante-tools-bash|
 Web search tools ····································· |avante-tools-web-search|
 Custom prompts ················································ |avante-prompts|
@@ -45,6 +47,7 @@ Anthropic provider ······························�
 Ollama provider ······································ |avante-providers-ollama|
 OpenAI provider ······································ |avante-providers-openai|
 Converts html to markdown ····································· |avante-html2md|
+Prompt generation ················································ |avante-path|
 
 ==============================================================================
 Installation                                               *avante-installation*
@@ -58,6 +61,8 @@ Requirements                                               *avante-requirements*
  Mandatory dependencies are:
  - 'nvim-lua/plenary.nvim'
  - 'MunifTanjim/nui.nvim'.
+ - "ColinKennedy/mega.cmdparse"
+ - "ColinKennedy/mega.logging" (as dependency of cmdparse)
 
  Optional dependencies are:
  - 'MeanderingProgrammer/render-markdown.nvim'
@@ -81,12 +86,18 @@ Therefore, Avante’s Zen Mode was born! It looks like a Vibe Coding Agent CLI b
 Now all you need to do is alias this command to avante; then every time you simply type avante just like using claude code and enter Avante’s Zen Mode!
 
 ==============================================================================
-                                                                        *avante*
+User events                                                      *avante-events*
+
+Avante triggers user events at various points in the codebase. The list might not be exhaustive:
+ - AvanteRequestLogin: when avante needs an API key for instance
+
+==============================================================================
+                                                                   *avante-init*
 
 Avante                                                                  *Avante*
 
 
-M.register_acp_client({client_id}, {client})        *avante.register_acp_client*
+M.register_acp_client({client_id}, {client})   *avante-init.register_acp_client*
     Register an ACP client for cleanup on exit
 
     Parameters: ~
@@ -94,49 +105,49 @@ M.register_acp_client({client_id}, {client})        *avante.register_acp_client*
         {client}     (any)     ACP client instance
 
 
-M.unregister_acp_client({client_id})              *avante.unregister_acp_client*
+M.unregister_acp_client({client_id})         *avante-init.unregister_acp_client*
     Unregister an ACP client
 
     Parameters: ~
         {client_id}  (string)  Unique identifier for the client
 
 
-M.cleanup_all_acp_clients()                     *avante.cleanup_all_acp_clients*
+M.cleanup_all_acp_clients()                *avante-init.cleanup_all_acp_clients*
     Cleanup all registered ACP clients
 
 
 ApiCaller                                                            *ApiCaller*
 
 
-M.get()                                                             *avante.get*
+M.get()                                                        *avante-init.get*
     @return avante.Sidebar, avante.Selection, avante.Suggestion
 
 
-M._init({id})                                                     *avante._init*
+M._init({id})                                                *avante-init._init*
 
     Parameters: ~
         {id}  (integer)
 
 
-M.toggle_sidebar({opts?})                                *avante.toggle_sidebar*
+M.toggle_sidebar({opts?})                           *avante-init.toggle_sidebar*
 
     Parameters: ~
         {opts?}  (AskOptions)
 
 
-M.is_sidebar_open()                                     *avante.is_sidebar_open*
+M.is_sidebar_open()                                *avante-init.is_sidebar_open*
 
 
-M.open_sidebar({opts?})                                    *avante.open_sidebar*
+M.open_sidebar({opts?})                               *avante-init.open_sidebar*
 
     Parameters: ~
         {opts?}  (AskOptions)
 
 
-M.close_sidebar()                                         *avante.close_sidebar*
+M.close_sidebar()                                    *avante-init.close_sidebar*
 
 
-M.setup({opts?})                                                  *avante.setup*
+M.setup({opts?})                                             *avante-init.setup*
 
     Parameters: ~
         {opts?}  (avante.Config)
@@ -179,7 +190,7 @@ Call `require("avante").setup()` from your Neovim configuration.
 Common options:
 
 >lua
-   require("avante").setup({
+   vim.g.avante = {
      provider = "claude",
      mode = "agentic",
      instructions_file = "avante.md",
@@ -221,7 +232,7 @@ Input providers
 
 Avante supports different interfaces that act as *vim.ui.input()*. See *avante.AvanteInput* for the supported options, here is :
 >
-   require("avante").setup({
+   vim.g.avante = {
      input = {
        provider = "snacks",
        provider_opts = {
@@ -237,7 +248,7 @@ Selector providers
 Avante supports `native`, `fzf_lua`, `mini_pick`, `snacks`, `telescope`, or
 a custom function:
 >
-   require("avante").setup({
+   vim.g.avante = {
      selector = {
        provider = "fzf_lua",
        provider_opts = {},
@@ -251,7 +262,7 @@ Fast Apply
 Fast Apply uses a specialized apply model for faster code edits. Enable it
 and configure Morph:
 >
-   require("avante").setup({
+   vim.g.avante = {
      behaviour = {
        enable_fastapply = true,
      },
@@ -271,7 +282,7 @@ Set:
 Configure ACP providers with `acp_providers`:
 
 >lua
-   require("avante").setup({
+   vim.g.avante = {
      acp_providers = {
        ["gemini-cli"] = {
          command = "gemini",
@@ -406,7 +417,8 @@ avante.Config                                                    *avante.Config*
     Fields: ~
         {debug}                       (boolean)
         {log_level}                   (vim.log.levels)                  will keep requests and responses on the filesystem. Check the logs to find their paths
-        {session_recovery}            (any)
+        {session_recovery}            (any)                            TODO
+        {memory_summary_provider}     (any)                            TODO
         {mode}                        (avante.Mode)                     Avante.nvim provides two interaction modes:
                                                                         - *agentic* (default): Uses AI tools to automatically generate and apply code changes
                                                                         - *legacy*: Uses the traditional planning method without automatic tool execution
@@ -430,12 +442,12 @@ avante.Config                                                    *avante.Config*
         {override_prompt_dir}         (string|nil|fun():string)         override_prompt_dir allows you to specify a directory containing your own custom prompt templates, which will override the built-in templates. This is useful if you want to maintain a set of custom prompts outside of your Neovim configuration.
                                                                        <lua
                                                                         -- Example: Override with prompts from a specific directory
-                                                                        require("avante").setup({
+                                                                        vim.g.avante = {
                                                                           override_prompt_dir = vim.fn.expand("~/.config/nvim/avante_prompts"),
                                                                         })
 
                                                                         -- Example: Override with prompts from a function (dynamic directory)
-                                                                        require("avante").setup({
+                                                                        vim.g.avante = {
                                                                           override_prompt_dir = function()
                                                                             -- Your logic to determine the prompt directory
                                                                             return vim.fn.expand("~/.config/nvim/my_dynamic_prompts")
@@ -1731,6 +1743,46 @@ M.get_resources()                             *avante-rag-service.get_resources*
 
 
 ==============================================================================
+avante tools                                                      *avante-tools*
+
+
+ Agentic mode enables tool use. If a model does not support tools, disable
+ them for that provider with:
+>lua
+   vim.g.avante = {
+     providers = {
+       claude = {
+         disable_tools = true,
+       },
+     },
+   })
+<
+
+You can see enabled tools with:
+
+>lua
+   vim.print(require'avante.llm_tools'.get_tool_names())
+<
+
+See |avante-custom-tools| on how to add your own tools.
+
+You can disable tools like this:
+>lua
+  vim.g.avante = {
+   disabled_tools = { "web_search_tavily" }
+  }
+<
+
+                                                         *avante-tools-builtins*
+ Built-in tool names include:
+>
+   rag_search, python, git_diff, git_commit, glob, search_keyword,
+   read_file_toplevel_symbols, read_file, create_file, move_path, copy_path,
+   delete_path, create_dir, bash, web_search_tavily, fetch
+<
+
+
+==============================================================================
 Custom tools                                               *avante-custom-tools*
 
 Custom tools can run shell commands, scripts, or Lua functions
@@ -1771,95 +1823,56 @@ Custom tools can run shell commands, scripts, or Lua functions
    }
 <
 
-==============================================================================
-avante tools                                                      *avante-tools*
-
-
- Agentic mode enables tool use. If a model does not support tools, disable
- them for that provider with:
->lua
-   vim.g.avante = {
-     providers = {
-       claude = {
-         disable_tools = true,
-       },
-     },
-   })
-<
-
-You can see enabled tools with:
-
->lua
-   vim.print(require'avante.llm_tools'.get_tool_names())
-<
-
-See |avante-custom-tools| on how to add your own tools.
-
-You can disable tools like this:
->lua
-  vim.g.avante = {
-   disabled_tools = { "web_search_tavily" }
-  }
-<
-
-                                                         *avante-tools-builtins*
- Built-in tool names include:
->
-   rag_search, python, git_diff, git_commit, glob, search_keyword,
-   read_file_toplevel_symbols, read_file, create_file, move_path, copy_path,
-   delete_path, create_dir, bash, web_search_tavily, fetch
-<
-
-
-M.read_file_toplevel_symbols()         *avante-tools.read_file_toplevel_symbols*
+M.read_file_toplevel_symbols()  *avante-custom-tools.read_file_toplevel_symbols*
     Read the top-level symbols of a file in current project scope.
     It can be used to extract information about functions, types, constants, and other symbols that are defined at the top level of a file.
 
 
-M.str_replace_editor()                         *avante-tools.str_replace_editor*
+M.str_replace_editor()                  *avante-custom-tools.str_replace_editor*
 
 
-M.str_replace_based_edit_tool()       *avante-tools.str_replace_based_edit_tool*
+                               *avante-custom-tools.str_replace_based_edit_tool*
+M.str_replace_based_edit_tool()
 
 
-M.read_global_file()                             *avante-tools.read_global_file*
+M.read_global_file()                      *avante-custom-tools.read_global_file*
     Read the contents of a file in the global scope if the file content is not already in context
 
 
-M.write_global_file()                           *avante-tools.write_global_file*
+M.write_global_file()                    *avante-custom-tools.write_global_file*
 
 
-M.move_path()                                           *avante-tools.move_path*
+M.move_path()                                    *avante-custom-tools.move_path*
 
 
-M.copy_path()                                           *avante-tools.copy_path*
+M.copy_path()                                    *avante-custom-tools.copy_path*
 
 
-M.delete_path()                                       *avante-tools.delete_path*
+M.delete_path()                                *avante-custom-tools.delete_path*
 
 
-M.create_dir()                                         *avante-tools.create_dir*
+M.create_dir()                                  *avante-custom-tools.create_dir*
 
 
-M.fetch()                                                   *avante-tools.fetch*
+M.fetch()                                            *avante-custom-tools.fetch*
     Fetch markdown from a url using our rust libraries
 
 
-M.git_diff()                                             *avante-tools.git_diff*
+M.git_diff()                                      *avante-custom-tools.git_diff*
 
 
-M.git_commit()                                         *avante-tools.git_commit*
+M.git_commit()                                  *avante-custom-tools.git_commit*
 
 
-M.rag_search()                                         *avante-tools.rag_search*
+M.rag_search()                                  *avante-custom-tools.rag_search*
 
 
-M.python()                                                 *avante-tools.python*
+M.python()                                          *avante-custom-tools.python*
     Runs python code via docker.
     Default container is python:3.14-slim-bookworm
 
 
-M.get_tools({user_input}, {history_messages})           *avante-tools.get_tools*
+M.get_tools({user_input}, {history_messages})    *avante-custom-tools.get_tools*
 
     Parameters: ~
         {user_input}        (string)
@@ -1869,7 +1882,7 @@ M.get_tools({user_input}, {history_messages})           *avante-tools.get_tools*
         (AvanteLLMTool[])
 
 
-M.get_tool_names()                                 *avante-tools.get_tool_names*
+M.get_tool_names()                          *avante-custom-tools.get_tool_names*
     @brief Get all active tools' names
 
 
@@ -1888,7 +1901,7 @@ avante.ProcessToolUseOpts                            *avante.ProcessToolUseOpts*
         {on_complete?}         (fun(result:string|nil,error:string|nil):nil)
 
 
-M.process_tool_use({tools}, {tool_use})          *avante-tools.process_tool_use*
+M.process_tool_use({tools}, {tool_use})   *avante-custom-tools.process_tool_use*
 
     Parameters: ~
         {tools}     (AvanteLLMTool[])
@@ -1899,7 +1912,7 @@ M.process_tool_use({tools}, {tool_use})          *avante-tools.process_tool_use*
         (string|nil)  error
 
 
-M.stringify_tool_use({tool_use})               *avante-tools.stringify_tool_use*
+M.stringify_tool_use({tool_use})        *avante-custom-tools.stringify_tool_use*
 
     Parameters: ~
         {tool_use}  (AvanteLLMToolUse)
@@ -2090,6 +2103,14 @@ M.get_os_name()                                       *avante-utils.get_os_name*
 
 
 M.get_system_info()                               *avante-utils.get_system_info*
+    Returns a string for the prompt:
+     - uname
+     - SHELL / LANG / date
+     - project root
+     - whether it's a git repo
+
+    Returns: ~
+        (string)
 
 
 M.shell_run()                                           *avante-utils.shell_run*
@@ -3886,6 +3907,52 @@ M.setup()                                                 *avante-html2md.setup*
 
 
 M.fetch_md()                                           *avante-html2md.fetch_md*
+
+
+==============================================================================
+Prompt generation                                                  *avante-path*
+
+avante.Path                                                        *avante.Path*
+
+    Fields: ~
+        {history_path}  (string)
+        {cache_path}    (string)
+        {data_path}     (string)
+
+
+P.list_projects()                                    *avante-path.list_projects*
+
+    Returns: ~
+        (table[])  of projects with their information
+
+
+AvanteTemplates                                                *AvanteTemplates*
+
+    Fields: ~
+        {initialize}  (fun(cache_directory:string,project_directory:string):nil)   @brief Interface to the rust library that renders jinja prompts
+        {render}      (fun(template:string,context:AvanteTemplateOptions):string)
+
+
+P._init_templates_lib()                        *avante-path._init_templates_lib*
+    Load avante-templates rust library
+
+    Returns: ~
+        (AvanteTemplates|nil)
+
+
+P.setup()                                                    *avante-path.setup*
+     Create storage_path , cache / data folders
+
+
+P.available()                                            *avante-path.available*
+    Check if rust templating library was loaded
+
+    Returns: ~
+        (boolean)
+
+
+P.clear()                                                    *avante-path.clear*
+    Delete folders containing history
 
 
 vim:tw=78:ts=8:noet:ft=help:norl:
