@@ -1,3 +1,5 @@
+---@mod avante-path Prompt generation
+---@brief Prompt related utilities
 local fn = vim.fn
 local Utils = require("avante.utils")
 local Path = require("plenary.path")
@@ -111,6 +113,7 @@ function History.get_latest_filename(bufnr, new)
   return filename
 end
 
+---Update metadata with latest history
 function History.save_latest_filename(bufnr, filename)
   local metadata_filepath = History.get_metadata_filepath(bufnr)
   local metadata = {}
@@ -271,9 +274,11 @@ local Prompt = {}
 ---@return string
 function Prompt.get_custom_prompts_filepath(mode) return string.format("custom.%s.avanterules", mode) end
 
+---Appends .avanterules to the path
 function Prompt.get_builtin_prompts_filepath(mode) return string.format("%s.avanterules", mode) end
 
 ---@class AvanteTemplates
+---@brief Interface to the rust library that renders jinja prompts
 ---@field initialize fun(cache_directory: string, project_directory: string): nil
 ---@field render fun(template: string, context: AvanteTemplateOptions): string
 local _templates_lib = nil
@@ -287,6 +292,7 @@ Prompt.custom_modes = {
 
 Prompt.custom_prompts_contents = {}
 
+---Load Config.rules.project_dir
 ---@param project_root string
 ---@return string templates_dir
 function Prompt.get_templates_dir(project_root)
@@ -401,6 +407,7 @@ function Prompt.get_filepath(mode)
   return Prompt.get_builtin_prompts_filepath(mode)
 end
 
+---Wrapper around rust library 'render'
 ---@param path string
 ---@param opts AvanteTemplateOptions
 function Prompt.render_file(path, opts) return _templates_lib.render(path, opts) end
@@ -452,6 +459,7 @@ end
 
 P.repo_map = RepoMap
 
+---Load avante-templates rust library
 ---@return AvanteTemplates|nil
 function P._init_templates_lib()
   if _templates_lib ~= nil then return _templates_lib end
@@ -465,6 +473,7 @@ function P._init_templates_lib()
   return _templates_lib
 end
 
+--- Create storage_path , cache / data folders
 function P.setup()
   local history_path = Config.history.storage_path
   if vim.uv.fs_stat(history_path) == nil then vim.fn.mkdir(history_path, "p") end
@@ -481,8 +490,11 @@ function P.setup()
   vim.defer_fn(P._init_templates_lib, 1000)
 end
 
+---Check if rust templating library was loaded
+---@return boolean
 function P.available() return P._init_templates_lib() ~= nil end
 
+---Delete folders containing history
 function P.clear()
   vim.fs.rm(P.cache_path, { recursive = true })
   vim.fs.rm(P.history_path, { recursive = true })
