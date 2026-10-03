@@ -18,6 +18,8 @@
 --->
 ---         :Avante rag query How does authentication work?
 ---<
+--- :Avante acp modes
+---         Switch ACP mode.
 --- :Avante acp sessions
 ---         List the current ACP agent's sessions for this project, including
 ---         ones started outside avante (e.g. in the agent's CLI), and resume
@@ -103,7 +105,7 @@
 ---
 ---                                                     *:AvanteACPModes*
 --- :AvanteACPModes
----         Switch ACP mode.
+---         Deprecated alias for :Avante acp modes. Shows a deprecation warning.
 ---
 ---@brief ]]
 
@@ -179,6 +181,9 @@ function M.setup()
 
   local acp = subparsers:add_parser({ name = "acp", help = "Work with the current ACP agent" })
   local acp_actions = acp:add_subparsers({ destination = "acp_command" })
+  acp_actions
+    :add_parser({ name = "modes", help = "Switch ACP mode" })
+    :set_execute(function() require("avante.api").select_acp_mode() end)
   acp_actions
     :add_parser({ name = "sessions", help = "List the agent's sessions for this project and resume one" })
     :set_execute(function() require("avante.api").select_acp_session() end)

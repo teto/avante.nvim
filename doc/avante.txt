@@ -721,6 +721,8 @@ Commands (:AvanteAsk,...)                                      *avante-commands*
 >
          :Avante rag query How does authentication work?
 <
+ :Avante acp modes
+         Switch ACP mode.
  :Avante acp sessions
          List the current ACP agent's sessions for this project, including
          ones started outside avante (e.g. in the agent's CLI), and resume
@@ -806,7 +808,7 @@ Commands (:AvanteAsk,...)                                      *avante-commands*
 
                                                      *:AvanteACPModes*
  :AvanteACPModes
-         Switch ACP mode.
+         Deprecated alias for :Avante acp modes. Shows a deprecation warning.
 
 
 M.setup()                                                *avante-commands.setup*
