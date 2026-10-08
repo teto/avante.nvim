@@ -203,6 +203,7 @@
         in
         rustPackages // {
           inherit ragService;
+          avante-nvim = avantePlugin;
           default = ragService;
         } // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
           dockerImage = pkgs.dockerTools.buildLayeredImage {
