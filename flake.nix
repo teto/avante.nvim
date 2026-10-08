@@ -183,7 +183,7 @@
             name = "vimplugin-${final.pname}-${final.version}";
             src = lib.fileset.toSource {
               root = ./.;
-              fileset = lib.fileset.unions [ ./lua ./plugin ./doc ./autoload ./ftplugin ];
+              fileset = lib.fileset.unions [ ./lua ./plugin ./doc ./autoload ./ftplugin ./contrib];
             };
             dependencies = old.dependencies ++ [ megaCmdparse ];
             # Native modules are built separately by the Rust packages above.
@@ -216,6 +216,7 @@
             tag = "latest";
             contents = [
               avanteNeovim
+              avantePlugin # just to put "avante" in path ?
               ragService
               pkgs.bashInteractive
               pkgs.pkgsStatic.coreutils-full # inspect needs "timeout" executable
