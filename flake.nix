@@ -7,7 +7,7 @@
   };
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs?rev=62e3050a29278c985725a86704faa1e99236b51a";
+    nixpkgs.url = "github:NixOS/nixpkgs?ref=nixos-unstable";
     pyproject-nix = {
       url = "github:pyproject-nix/pyproject.nix";
       inputs.nixpkgs.follows = "nixpkgs";
