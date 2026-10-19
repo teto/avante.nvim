@@ -37,7 +37,7 @@
 ---Common options:
 ---
 --->lua
----   require("avante").setup({
+---   vim.g.avante = {
 ---     provider = "claude",
 ---     mode = "agentic",
 ---     instructions_file = "avante.md",
@@ -79,7 +79,7 @@
 ---
 ---Avante supports different interfaces that act as *vim.ui.input()*. See *avante.AvanteInput* for the supported options, here is :
 --->
----   require("avante").setup({
+---   vim.g.avante = {
 ---     input = {
 ---       provider = "snacks",
 ---       provider_opts = {
@@ -95,7 +95,7 @@
 ---Avante supports `native`, `fzf_lua`, `mini_pick`, `snacks`, `telescope`, or
 ---a custom function:
 --->
----   require("avante").setup({
+---   vim.g.avante = {
 ---     selector = {
 ---       provider = "fzf_lua",
 ---       provider_opts = {},
@@ -109,7 +109,7 @@
 ---Fast Apply uses a specialized apply model for faster code edits. Enable it
 ---and configure Morph:
 --->
----   require("avante").setup({
+---   vim.g.avante = {
 ---     behaviour = {
 ---       enable_fastapply = true,
 ---     },
@@ -129,7 +129,7 @@
 ---Configure ACP providers with `acp_providers`:
 ---
 --->lua
----   require("avante").setup({
+---   vim.g.avante = {
 ---     acp_providers = {
 ---       ["gemini-cli"] = {
 ---         command = "gemini",
@@ -174,7 +174,8 @@ local Utils = require("avante.utils")
 
 local function copilot_use_response_api(opts)
   local model = opts and opts.model
-  return type(model) == "string" and model:match("gpt%-%d+%.?%d*%-codex") ~= nil
+  return type(model) == "string"
+    and (model:match("^gpt%-[56][%.%-]") ~= nil or model:match("gpt%-%d+%.?%d*%-codex") ~= nil)
 end
 
 ---@alias avante.ProviderName "claude" | "openai" | "azure" | "gemini" | "vertex" | "cohere" | "copilot" | "bedrock" | "ollama" | "watsonx_code_assistant" | "mistral" | string
@@ -224,6 +225,16 @@ end
 ---@field next_prompt? avante.Config.PromptLoggerKeymap Mapping used to load the next newer prompt log.
 ---@field prev_prompt? avante.Config.PromptLoggerKeymap Mapping used to load the previous older prompt log.
 
+---@class avante.Config.HistoryPaste
+---@field extension string Image filename extension. Defaults to "png". Currently unused.
+---@field filename string Image filename date format. Defaults to "pasted-%Y-%m-%d-%H-%M-%S". Currently unused.
+
+---@class avante.Config.History
+---@field max_tokens integer History token limit. Defaults to 4096. Currently unused.
+---@field carried_entry_count? integer Number of history entries to carry over. Defaults to nil. Currently unused.
+---@field storage_path string Directory for chat history and pasted images. Defaults to vim.fs.joinpath(vim.fn.stdpath("state"), "avante").
+---@field paste avante.Config.HistoryPaste Pasted image filename options. Currently unused.
+
 ---@class avante.Config.RagServiceModel
 ---@field provider string Model provider. One available in py/rag-service/src/providers ie., "ollama", "openai", "dashscope", "openrouter"
 ---@field endpoint string Model API endpoint (e.g., http://localhost)
@@ -248,7 +259,8 @@ M.instructions_file = "avante.md"
 ---@field debug boolean
 --- will keep requests and responses on the filesystem. Check the logs to find their paths
 ---@field log_level vim.log.levels
----@field public session_recovery any
+---@field public session_recovery any TODO
+---@field memory_summary_provider any TODO
 --- Avante.nvim provides two interaction modes:
 --- - *agentic* (default): Uses AI tools to automatically generate and apply code changes
 --- - *legacy*: Uses the traditional planning method without automatic tool execution
@@ -278,12 +290,12 @@ M.instructions_file = "avante.md"
 --- override_prompt_dir allows you to specify a directory containing your own custom prompt templates, which will override the built-in templates. This is useful if you want to maintain a set of custom prompts outside of your Neovim configuration.
 ---<lua
 --- -- Example: Override with prompts from a specific directory
---- require("avante").setup({
+--- vim.g.avante = {
 ---   override_prompt_dir = vim.fn.expand("~/.config/nvim/avante_prompts"),
 --- })
 ---
 --- -- Example: Override with prompts from a function (dynamic directory)
---- require("avante").setup({
+--- vim.g.avante = {
 ---   override_prompt_dir = function()
 ---     -- Your logic to determine the prompt directory
 ---     return vim.fn.expand("~/.config/nvim/my_dynamic_prompts")
@@ -297,6 +309,7 @@ M.instructions_file = "avante.md"
 ---@field web_search_engine avante.Config.WebSearchEngine Web search configuration.
 ---@field behaviour avante.Config.Behaviour Behaviour and automation options.
 ---@field prompt_logger avante.Config.PromptLogger Prompt logging options.
+---@field history avante.Config.History Chat history storage options.
 ---@field windows table
 ---@field disabled_tools string[] You can choose to disable tools by their names in case you want to avoid its usage (like Claude 3.7 overusing the python tool). For example: `{ "python" }`
 ---@field custom_tools AvanteSlashCommand[] see |avante-custom-tools|
@@ -405,7 +418,7 @@ M._defaults = {
       model = "gpt-4o",
       timeout = 30000,
       context_window = 128000, -- Number of tokens to send to the model for context
-      use_response_api = copilot_use_response_api, -- Automatically switch to Response API for GPT-5 Codex models
+      use_response_api = copilot_use_response_api, -- Automatically switch GPT-5 and GPT-6 models to the Response API
       support_previous_response_id = true, -- OpenAI Response API supports previous_response_id for stateful conversations
       extra_request_body = {
         temperature = 0.75,
@@ -431,10 +444,10 @@ M._defaults = {
       allow_insecure = false, -- Allow insecure server connections
       timeout = 30000, -- Timeout in milliseconds
       context_window = 64000, -- Number of tokens to send to the model for context
-      use_response_api = copilot_use_response_api, -- Automatically switch to Response API for GPT-5 Codex models
+      use_response_api = copilot_use_response_api, -- Automatically switch GPT-5 and GPT-6 models to the Response API
       support_previous_response_id = false, -- Copilot doesn't support previous_response_id, must send full history
       -- NOTE: Copilot doesn't support previous_response_id, always sends full conversation history including tool_calls
-      -- NOTE: Response API doesn't support some parameters like top_p, frequency_penalty, presence_penalty
+      -- NOTE: Responses doesn't support frequency_penalty or presence_penalty
       extra_request_body = {
         -- temperature is not supported by Response API for reasoning models
         max_tokens = 20480,
@@ -772,6 +785,7 @@ M._defaults = {
       switch_windows = "<Tab>",
       reverse_switch_windows = "<S-Tab>",
       toggle_code_window = "x",
+      focus_input = "i",
       remove_file = "d",
       add_file = "@",
       close = { "q" },

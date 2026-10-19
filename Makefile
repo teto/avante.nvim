@@ -72,6 +72,9 @@ $(BUILD_DIR):
 clean:
 	@rm -rf $(BUILD_DIR)/*.$(EXT)
 
+pre-commit:
+	pre-commit run --all-files --show-diff-on-failure
+
 .PHONY: docgen
 docgen:
 	vimcats --prefix-func \
@@ -89,6 +92,7 @@ docgen:
 		lua/avante/utils/prompts.lua \
 		lua/avante/extensions/init.lua \
 		lua/avante/utils/init.lua \
+		lua/avante/utils/curl.lua \
 		lua/avante/libs/acp_client.lua \
 		lua/avante/providers/init.lua \
 		lua/avante/providers/bedrock.lua \
@@ -96,6 +100,7 @@ docgen:
 		lua/avante/providers/ollama.lua \
 		lua/avante/providers/openai.lua \
 		lua/avante/html2md.lua \
+		lua/avante/path.lua \
 		lua/avante/faq.lua \
 		> doc/avante.txt
 	nvim -u NONE -i NONE --headless +'helptags doc' +'quit!'
@@ -154,12 +159,15 @@ build-image:
 push-image: build-image
 	docker push $(RAG_SERVICE_IMAGE)
 
+.PHONY: docker-run
+docker-run:
+	nix build .#dockerImage && docker load < result && docker run --rm -it avante-nvim:latest
+
+
 .PHONY: rag-venv
 rag-venv:
-	uv venv --python 3.13
-	source .venv/bin/activate
-	# uv build
-	uv pip install py/rag-service
+	uv venv --python 3.14
+	source .venv/bin/activate && uv pip install py/rag-service
 
 
 .PHONY: rag-start

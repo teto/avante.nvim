@@ -59,6 +59,12 @@ function M.get_os_name()
   end
 end
 
+---Returns a string for the prompt:
+--- - uname
+--- - SHELL / LANG / date
+--- - project root
+--- - whether it's a git repo
+---@return string
 function M.get_system_info()
   local os_name = vim.uv.os_uname().sysname
   local os_version = vim.uv.os_uname().release

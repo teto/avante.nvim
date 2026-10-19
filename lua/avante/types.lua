@@ -86,6 +86,7 @@ vim.g.avante_login = vim.g.avante_login
 ---@class AvanteLLMMessage
 ---@field role "user" | "assistant"
 ---@field content AvanteLLMMessageContent
+---@field phase? "commentary" | "final_answer"
 
 ---@class avante.TODO
 ---@field id string
@@ -128,11 +129,11 @@ vim.g.avante_login = vim.g.avante_login
 ---@field is_user_declined? boolean
 
 ---@class AvantePromptOptions: table<[string], string>
----@field system_prompt string
+---@field system_prompt string highest priority initial prompt (see config.system_prompt)
 ---@field messages AvanteLLMMessage[]
 ---@field image_paths? string[]
----@field tools? AvanteLLMTool[]
----@field pending_compaction_history_messages? AvanteLLMMessage[]
+---@field tools? AvanteLLMTool[] Available tools
+---@field pending_compaction_history_messages? AvanteLLMMessage[] messages that might need to get compacted
 ---
 ---@class AvanteGeminiMessage
 ---@field role "user"
@@ -242,7 +243,7 @@ vim.g.avante_login = vim.g.avante_login
 ---
 ---@alias AvanteMessagesParser fun(self: AvanteProviderFunctor, opts: AvantePromptOptions): AvanteChatMessage[]
 ---
----@class AvanteCurlOutput: {url: string, proxy: string, insecure: boolean, body: table<string, any> | string, headers: table<string, string>, rawArgs: string[] | nil}
+---@class AvanteCurlOutput: {url: string, proxy: string, insecure: boolean, body: table<string, any> | string, headers: table<string, string>, rawArgs: string[] | nil, auth: string | nil}
 ---@alias AvanteCurlArgsParser fun(self: AvanteProviderFunctor, prompt_opts: AvantePromptOptions): (AvanteCurlOutput | nil)
 ---
 ---@alias AvanteResponseParser fun(self: AvanteProviderFunctor, ctx: any, data_stream: string, event_state: string?, opts: AvanteHandlerOptions): nil
@@ -390,6 +391,9 @@ vim.g.avante_login = vim.g.avante_login
 ---@field args string[]
 ---@field env table<string, string>
 ---@field auth_method string
+---@field mcp_servers? avante.acp.McpServer[]
+---@field additional_directories? string[] Additional absolute workspace roots for ACP sessions
+---@field session_close_timeout? integer Maximum time to wait for session/close before stopping the agent
 ---
 ---@alias AvanteLlmMode avante.Mode | "editing" | "suggesting"
 ---
@@ -440,10 +444,14 @@ vim.g.avante_login = vim.g.avante_login
 ---
 ---@class AvanteLLMStreamOptions: AvanteGeneratePromptsOptions
 ---@field acp_client? avante.acp.ACPClient
----@field on_save_acp_client? fun(client: avante.acp.ACPClient): nil
+---@field on_save_acp_client? fun(client: avante.acp.ACPClient): boolean|nil Return false to discard the client and stop the request
+---@field on_acp_config_change? fun(): nil
 ---@field just_connect_acp_client? boolean
 ---@field acp_session_id? string
+---@field acp_session_cwd? string Directory the ACP session belongs to; defaults to the project root
 ---@field on_save_acp_session_id? fun(session_id: string): nil
+---@field on_acp_session_replay? fun(session_id: string, messages: avante.HistoryMessage[]): nil Set to receive the conversation an agent replays on session/load; a failed load then calls on_acp_session_load_error instead of starting a new session
+---@field on_acp_session_load_error? fun(session_id: string, err: avante.acp.ACPError): nil
 ---@field on_start AvanteLLMStartCallback
 ---@field on_chunk? AvanteLLMChunkCallback
 ---@field on_stop AvanteLLMStopCallback
@@ -534,6 +542,7 @@ vim.g.avante_login = vim.g.avante_login
 ---@field system_prompt string | nil
 ---@field tokens_usage avante.LLMTokenUsage | nil
 ---@field acp_session_id string | nil
+---@field acp_session_cwd string | nil Directory of an imported ACP session, used to load it
 ---
 ---@class avante.ChatMemory
 ---@field content string

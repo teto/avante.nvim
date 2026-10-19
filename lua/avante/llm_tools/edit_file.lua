@@ -1,6 +1,7 @@
 local Base = require("avante.llm_tools.base")
 local Providers = require("avante.providers")
 local Utils = require("avante.utils")
+local Curl = require("avante.utils.curl")
 
 ---@class AvanteLLMTool
 local M = setmetatable({}, Base)
@@ -125,11 +126,13 @@ M.func = vim.schedule_wrap(function(input, opts)
     Utils.url_join(provider_conf.endpoint, "/chat/completions"),
   }
 
-  -- Add authorization header if available
+  -- Add authorization header if available, from a private file as the command line is visible to other users
+  local headers_file
   if Providers.env.require_api_key(provider_conf) then
     local api_key = provider.parse_api_key()
+    headers_file = Curl.write_headers_file({ ["Authorization"] = "Bearer " .. api_key })
     table.insert(curl_cmd, 4, "-H")
-    table.insert(curl_cmd, 5, "Authorization: Bearer " .. api_key)
+    table.insert(curl_cmd, 5, "@" .. headers_file)
   end
 
   vim.system(
@@ -138,8 +141,9 @@ M.func = vim.schedule_wrap(function(input, opts)
       text = true,
     },
     vim.schedule_wrap(function(result)
-      -- Clean up temporary file
+      -- Clean up temporary files
       vim.fn.delete(curl_body_file)
+      if headers_file then vim.fn.delete(headers_file) end
 
       if result.code ~= 0 then
         local error_msg = result.stderr

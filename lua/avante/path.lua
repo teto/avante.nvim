@@ -1,3 +1,5 @@
+---@mod avante-path Prompt generation and history
+---@brief Prompt related utilities
 local fn = vim.fn
 local Utils = require("avante.utils")
 local Path = require("plenary.path")
@@ -28,6 +30,9 @@ local function filepath_to_filename(filepath) return tostring(filepath):sub(tost
 -- History path
 local History = {}
 
+---Returns the folder that contains past prompts
+---@see avante.Config.History
+---@return Path
 function History.get_history_dir(bufnr)
   local dirname = generate_project_dirname_in_storage(bufnr)
   local history_dir = Path:new(Config.history.storage_path):joinpath(dirname):joinpath("history")
@@ -45,6 +50,7 @@ function History.get_history_dir(bufnr)
   return history_dir
 end
 
+---Lists all conversations with the latest first, ordered by timestamp
 ---@return avante.ChatHistory[]
 function History.list(bufnr)
   local history_dir = History.get_history_dir(bufnr)
@@ -111,6 +117,7 @@ function History.get_latest_filename(bufnr, new)
   return filename
 end
 
+---Update metadata with latest history
 function History.save_latest_filename(bufnr, filename)
   local metadata_filepath = History.get_metadata_filepath(bufnr)
   local metadata = {}
@@ -150,7 +157,7 @@ function History.from_file(filepath)
       local decode_ok, history = pcall(vim.json.decode, content)
       if decode_ok and type(history) == "table" then
         if not history.title or type(history.title) ~= "string" then history.title = "untitled" end
-        if not history.timestamp or history.timestamp ~= "string" then history.timestamp = Utils.get_timestamp() end
+        if type(history.timestamp) ~= "string" then history.timestamp = Utils.get_timestamp() end
         -- TODO: sanitize individual entries of the lists below as well.
         if not vim.islist(history.entries) then history.entries = {} end
         if not vim.islist(history.messages) then history.messages = {} end
@@ -271,13 +278,16 @@ local Prompt = {}
 ---@return string
 function Prompt.get_custom_prompts_filepath(mode) return string.format("custom.%s.avanterules", mode) end
 
+---Appends ".avanterules" to the path
 function Prompt.get_builtin_prompts_filepath(mode) return string.format("%s.avanterules", mode) end
 
 ---@class AvanteTemplates
+---@brief Interface to the rust library that renders jinja prompts
 ---@field initialize fun(cache_directory: string, project_directory: string): nil
 ---@field render fun(template: string, context: AvanteTemplateOptions): string
 local _templates_lib = nil
 
+---tell which rules to load
 Prompt.custom_modes = {
   agentic = true,
   legacy = true,
@@ -285,8 +295,17 @@ Prompt.custom_modes = {
   suggesting = true,
 }
 
+---Saved prompts for custom_modes
+---@type table<AvanteLlmMode, string>
 Prompt.custom_prompts_contents = {}
 
+---Search and load avanterules in this order:
+--- - Config.rules.project_dir
+--- - Config.rules.global_dir
+--- - project_root directory
+---
+--- then looks at Config.override_prompt_dir, fixing files if necessary
+---@see avante-prompts
 ---@param project_root string
 ---@return string templates_dir
 function Prompt.get_templates_dir(project_root)
@@ -302,6 +321,7 @@ function Prompt.get_templates_dir(project_root)
   local cache_dir_str = tostring(cache_prompt_dir):gsub("\\", "/")
   if vim.fn.isdirectory(cache_dir_str) == 0 then vim.fn.mkdir(cache_dir_str, "p") end
 
+  ---Loop over files searching for [MODE].avanterules
   local function find_rules(dir)
     if not dir then return end
     if vim.fn.isdirectory(dir) ~= 1 then return end
@@ -343,6 +363,8 @@ function Prompt.get_templates_dir(project_root)
   -- Check for override prompt
   local override_prompt_dir = Config.override_prompt_dir
   if override_prompt_dir then
+    Utils.debug("override_prompt_dir set")
+
     -- Handle the case where override_prompt_dir is a function
     if type(override_prompt_dir) == "function" then
       local ok, result = pcall(override_prompt_dir)
@@ -364,11 +386,13 @@ function Prompt.get_templates_dir(project_root)
               local content = file:read()
 
               if not content:match("{%% block extra_prompt %%}[%s,\\n]*{%% endblock %%}") then
+                Utils.warn("Appending missing extra_prompt block")
                 file:write("{% block extra_prompt %}\n", "a")
                 file:write("{% endblock %}\n", "a")
               end
 
               if not content:match("{%% block custom_prompt %%}[%s,\\n]*{%% endblock %%}") then
+                Utils.warn("Appending missing custom_prompt block")
                 file:write("{% block custom_prompt %}\n", "a")
                 file:write("{% endblock %}", "a")
               end
@@ -380,7 +404,7 @@ function Prompt.get_templates_dir(project_root)
     end
   end
 
-  vim.iter(Prompt.custom_prompts_contents):filter(function(_, v) return v ~= nil end):each(function(k, v)
+  for k, v in pairs(Prompt.custom_prompts_contents) do
     local orig_file = cache_prompt_dir:joinpath(Prompt.get_builtin_prompts_filepath(k))
     local orig_content = orig_file:read()
     local f = cache_prompt_dir:joinpath(Prompt.get_custom_prompts_filepath(k))
@@ -388,7 +412,7 @@ function Prompt.get_templates_dir(project_root)
     f:write("{% block custom_prompt -%}\n", "a")
     f:write(v, "a")
     f:write("\n{%- endblock %}", "a")
-  end)
+  end
 
   local dir = vim.fs.abspath(tostring(cache_prompt_dir))
   return dir
@@ -401,9 +425,14 @@ function Prompt.get_filepath(mode)
   return Prompt.get_builtin_prompts_filepath(mode)
 end
 
+---Wrapper around rust library 'render'
+---Render jinja template
 ---@param path string
 ---@param opts AvanteTemplateOptions
-function Prompt.render_file(path, opts) return _templates_lib.render(path, opts) end
+function Prompt.render_file(path, opts)
+  Utils.debug("Rendering prompt for " .. path)
+  return _templates_lib.render(path, opts)
+end
 
 ---@param mode AvanteLlmMode
 ---@param opts AvanteTemplateOptions
@@ -415,6 +444,7 @@ function Prompt.render_mode(mode, opts)
   return res
 end
 
+---@Initialize the rust library avante_templates
 function Prompt.initialize(cache_directory, project_directory)
   _templates_lib.initialize(cache_directory, project_directory)
 end
@@ -423,10 +453,10 @@ P.prompts = Prompt
 
 local RepoMap = {}
 
--- Get a chat history file name given a buffer
+-- Get the path where to expect the repo map
 ---@param project_root string
 ---@param ext string
----@return string
+---@return string name of the repo map (suffixed with .repo_map.json)
 function RepoMap.filename(project_root, ext)
   -- Replace path separators with double underscores
   local path_with_separators = fn.substitute(project_root, "/", "__", "g")
@@ -452,6 +482,7 @@ end
 
 P.repo_map = RepoMap
 
+---Load avante-templates rust library
 ---@return AvanteTemplates|nil
 function P._init_templates_lib()
   if _templates_lib ~= nil then return _templates_lib end
@@ -465,6 +496,7 @@ function P._init_templates_lib()
   return _templates_lib
 end
 
+--- Create storage_path , cache / data folders
 function P.setup()
   local history_path = Config.history.storage_path
   if vim.uv.fs_stat(history_path) == nil then vim.fn.mkdir(history_path, "p") end
@@ -481,8 +513,11 @@ function P.setup()
   vim.defer_fn(P._init_templates_lib, 1000)
 end
 
+---Check if rust templating library was loaded
+---@return boolean
 function P.available() return P._init_templates_lib() ~= nil end
 
+---Delete folders containing history
 function P.clear()
   vim.fs.rm(P.cache_path, { recursive = true })
   vim.fs.rm(P.history_path, { recursive = true })

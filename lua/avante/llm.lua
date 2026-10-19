@@ -2,7 +2,7 @@ local api = vim.api
 local fn = vim.fn
 local uv = vim.uv
 
-local curl = require("plenary.curl")
+local curl = require("avante.utils.curl")
 local ACPClient = require("avante.libs.acp_client")
 
 local Utils = require("avante.utils")
@@ -14,6 +14,7 @@ local LLMToolHelpers = require("avante.llm_tools.helpers")
 local LLMTools = require("avante.llm_tools")
 local History = require("avante.history")
 local HistoryRender = require("avante.history.render")
+local AcpReplay = require("avante.history.acp_replay")
 local ACPConfirmAdapter = require("avante.ui.acp_confirm_adapter")
 local log = require("avante.utils.log")
 
@@ -255,11 +256,16 @@ function M.agent_loop(opts)
   M._stream(stream_options)
 end
 
---- Loads prompt from various locations (avante.md, )
+--- Loads prompt from various locations:
+--- - see config.instructions_file (defaults to avante.md)
+--- - depending on your mode either legacy.avanterules or agentic.avanterules
+--- - system info
+--- - selected files
+---@see avante-sidebar:get_generate_prompts_options
 ---@param opts AvanteGeneratePromptsOptions
 ---@return AvantePromptOptions
 function M.generate_prompts(opts)
-  local project_instruction_file = Config.instructions_file or "avante.md"
+  local project_instruction_file = Config.instructions_file
   local project_root = tostring(Utils.root.get())
   local instruction_file_path = vim.fs.joinpath(project_root, project_instruction_file)
 
@@ -345,6 +351,7 @@ function M.generate_prompts(opts)
   if opts.prompt_opts and opts.prompt_opts.system_prompt then
     system_prompt = opts.prompt_opts.system_prompt
   else
+    Utils.debug("Load system_prompt for mode " .. mode)
     system_prompt = Path.prompts.render_mode(mode, template_opts)
   end
 
@@ -353,10 +360,12 @@ function M.generate_prompts(opts)
     if type(Config.system_prompt) == "function" then
       Utils.debug("Loading system_prompt from function...")
       custom_system_prompt = Config.system_prompt()
+    elseif type(Config.system_prompt) == "string" then
+      custom_system_prompt = Config.system_prompt
     end
-    if type(Config.system_prompt) == "string" then custom_system_prompt = Config.system_prompt end
+
     if custom_system_prompt ~= nil and custom_system_prompt ~= "" and custom_system_prompt ~= "null" then
-      Utils.debug("Appending custom prompt to system prompt")
+      Utils.debug("Appending g:avante.system_prompt to system prompt")
       system_prompt = system_prompt .. "\n\n" .. custom_system_prompt
     end
   end
@@ -402,13 +411,11 @@ function M.generate_prompts(opts)
   end
 
   if context_window and context_window > 0 then
-    Utils.debug("Context window", context_window)
     if opts.get_tokens_usage then
       local tokens_usage = opts.get_tokens_usage()
       if tokens_usage and tokens_usage.prompt_tokens ~= nil and tokens_usage.completion_tokens ~= nil then
         local target_tokens = context_window * 0.9
         local tokens_count = tokens_usage.prompt_tokens + tokens_usage.completion_tokens
-        Utils.debug("Tokens count", tokens_count)
         if tokens_count > target_tokens then pending_compaction_history_messages = opts.history_messages end
       end
     end
@@ -597,6 +604,7 @@ function M.curl(opts)
       insecure = spec.insecure,
       form = spec.body,
       raw = spec.rawArgs,
+      auth = spec.auth,
     }
   else
     -- For regular JSON requests, encode as JSON and write to file
@@ -608,6 +616,7 @@ function M.curl(opts)
       insecure = spec.insecure,
       body = curl_body_file,
       raw = spec.rawArgs,
+      auth = spec.auth,
     }
   end
 
@@ -624,7 +633,8 @@ function M.curl(opts)
 
   local headers_reported = false
 
-  local started_job, new_active_job = pcall(
+  -- remove_private_files deletes the files that pass the headers and credentials to curl right away
+  local started_job, new_active_job, remove_private_files = pcall(
     curl.post,
     spec.url,
     vim.tbl_extend("force", curl_options, {
@@ -779,6 +789,7 @@ function M.curl(opts)
 
         -- Clean up and notify of cancellation
         cleanup()
+        remove_private_files()
         vim.schedule(function() handler_opts.on_stop({ reason = "cancelled" }) end)
       end
     end,
@@ -1007,6 +1018,16 @@ function M._stream_acp(opts)
       ---@type ACPHandlers
       handlers = {
         on_session_update = function(update)
+          -- Replayed updates from session/load duplicate content already in
+          -- the chat history; rendering them would re-append old messages and
+          -- navigate the editor to files edited in the loaded session.
+          if update._replayed then return end
+
+          if update.sessionUpdate == "config_option_update" or update.sessionUpdate == "current_mode_update" then
+            if opts.on_acp_config_change then opts.on_acp_config_change() end
+            return
+          end
+
           if update.sessionUpdate == "plan" then
             local todos = {}
             for idx, entry in ipairs(update.entries) do
@@ -1339,7 +1360,15 @@ function M._stream_acp(opts)
     acp_client = ACPClient:new(acp_config)
 
     acp_client:connect(function(conn_err)
+      -- When importing a session, report failures to the import instead of falling back
+      local import_session_id = opts.on_acp_session_load_error and opts.acp_session_id
+
       if conn_err then
+        if import_session_id then
+          pcall(acp_client.stop, acp_client)
+          opts.on_acp_session_load_error(import_session_id, conn_err)
+          return
+        end
         opts.on_stop({ reason = "error", error = conn_err })
         return
       end
@@ -1351,8 +1380,19 @@ function M._stream_acp(opts)
 
       -- If we create a new client and it does not support sesion loading,
       -- remove the old session
-      if not acp_client.agent_capabilities.loadSession then opts.acp_session_id = nil end
-      if opts.on_save_acp_client then opts.on_save_acp_client(acp_client) end
+      if not acp_client.agent_capabilities.loadSession then
+        if import_session_id then
+          pcall(acp_client.stop, acp_client)
+          opts.on_acp_session_load_error(
+            import_session_id,
+            acp_client:_create_error(ACPClient.ERROR_CODES.METHOD_NOT_FOUND, "Agent does not support loading sessions")
+          )
+          return
+        end
+        opts.acp_session_id = nil
+      end
+      -- The caller rejects a client it no longer wants (e.g. it switched chats meanwhile)
+      if opts.on_save_acp_client and opts.on_save_acp_client(acp_client) == false then return end
 
       session_id = opts.acp_session_id
       if not session_id then
@@ -1388,6 +1428,7 @@ function M._create_acp_session_and_continue(opts, acp_client)
     end
     opts.acp_session_id = session_id_
     if opts.on_save_acp_session_id then opts.on_save_acp_session_id(session_id_) end
+    if opts.on_acp_config_change then opts.on_acp_config_change() end
 
     if opts.just_connect_acp_client then return end
     M._continue_stream_acp(opts, acp_client, session_id_)
@@ -1398,13 +1439,44 @@ end
 ---@param acp_client avante.acp.ACPClient
 ---@param session_id string
 function M._load_acp_session_and_continue(opts, acp_client, session_id)
-  local project_root = Utils.root.get()
-  acp_client:load_session(session_id, project_root, {}, function(_, err)
+  local project_root = opts.acp_session_cwd or Utils.root.get()
+  local acp_provider = Config.acp_providers[Config.provider] or {}
+  local mcp_servers = acp_provider.mcp_servers or {}
+
+  local on_replay = opts.on_acp_session_replay
+  ---@type table[]
+  local replayed_updates = {}
+  -- When importing a session, collect the conversation the agent replays. (On a normal reload
+  -- the replay is marked `_replayed` and ignored, since the chat history already holds it.)
+  ---@type avante.acp.LoadSessionOpts|nil
+  local load_opts = nil
+  if on_replay then
+    load_opts = {
+      on_replay = function(update)
+        if not AcpReplay.is_conversation_update(update) then return false end
+        table.insert(replayed_updates, update)
+        return true
+      end,
+    }
+  end
+
+  acp_client:load_session(session_id, project_root, mcp_servers, function(_, err)
     if err then
+      if on_replay then
+        -- The caller asked for this exact session, so don't silently swap in a new one
+        if opts.on_acp_session_load_error then opts.on_acp_session_load_error(session_id, err) end
+        return
+      end
       -- Failed to load session, create a new one. It happens after switching acp providers
       M._create_acp_session_and_continue(opts, acp_client)
       return
     end
+
+    if on_replay then
+      local messages = AcpReplay.to_messages(replayed_updates)
+      vim.schedule(function() on_replay(session_id, messages) end)
+    end
+    if opts.on_acp_config_change then opts.on_acp_config_change() end
 
     if opts.just_connect_acp_client then
       vim.schedule(function()
@@ -1413,7 +1485,7 @@ function M._load_acp_session_and_continue(opts, acp_client, session_id)
       return
     end
     M._continue_stream_acp(opts, acp_client, session_id)
-  end)
+  end, load_opts)
 end
 
 ---@param opts AvanteLLMStreamOptions
@@ -1590,6 +1662,25 @@ function M._continue_stream_acp(opts, acp_client, session_id)
           .. user_messages_added
           .. " recent user messages</system_context>",
       })
+    elseif #prompt == 0 then
+      -- Session continuation without any history user messages (e.g. the edit
+      -- flow, which submits only `instructions`): fall back to the freshly
+      -- generated prompts, same as the branch below. Without this, an empty
+      -- prompt array is sent, which ACP agents reject (opencode/GLM: "The
+      -- messages parameter is illegal").
+      local prompt_opts = M.generate_prompts(opts)
+      table.insert(prompt, {
+        type = "text",
+        text = prompt_opts.system_prompt,
+      })
+      for _, message in ipairs(prompt_opts.messages) do
+        if message.role == "user" then
+          table.insert(prompt, {
+            type = "text",
+            text = message.content,
+          })
+        end
+      end
     end
   else
     if donot_use_builtin_system_prompt then
@@ -1666,8 +1757,8 @@ function M._continue_stream_acp(opts, acp_client, session_id)
       local is_session_not_found = false
       if err_.code == -32603 and err_.data and err_.data.details then
         local details = err_.data.details
-        -- Support both Claude format ("Session not found") and Gemini-CLI format ("Session not found: session-id")
-        is_session_not_found = details == "Session not found" or details:match("^Session not found:")
+        -- Support Claude, Gemini-CLI, and Codex ACP session-not-found formats.
+        is_session_not_found = details:match("^Session .-not found:?") ~= nil
       end
 
       if recovery_enabled and is_session_not_found and not rawget(opts, "_session_recovery_attempted") then

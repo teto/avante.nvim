@@ -995,6 +995,7 @@ The following key bindings are available for use with `avante.nvim`:
 | <kbd>e</kbd>                              | edit user request                      |
 | <kbd>&lt;Tab&gt;</kbd>                    | switch windows                         |
 | <kbd>&lt;S-Tab&gt;</kbd>                  | reverse switch windows                 |
+| <kbd>i</kbd>                              | focus input                            |
 | <kbd>d</kbd>                              | remove file                            |
 | <kbd>@</kbd>                              | add file                               |
 | <kbd>q</kbd>                              | close sidebar                          |
@@ -1047,12 +1048,14 @@ The following key bindings are available for use with `avante.nvim`:
 | `:AvanteChat`                      | Start a chat session with AI about your codebase. Default is `ask`=false                                    |                                                     |
 | `:AvanteChatNew`                   | Start a new chat session. The current chat can be re-opened with the chat session selector                  |                                                     |
 | `:AvanteHistory`                   | Opens a picker for your previous chat sessions                                                              |                                                     |
+| `:Avante acp modes`                | Switches ACP mode (`:AvanteACPModes` is a deprecated alias)                                                  |                                                     |
+| `:Avante acp sessions`             | Lists the current ACP agent's sessions (including ones started in its CLI) and resumes the selected one     |                                                     |
 | `:AvanteClear`                     | Clear the chat history for your current chat session                                                        |                                                     |
 | `:AvanteEdit`                      | Edit the selected code blocks                                                                               |                                                     |
 | `:AvanteFocus`                     | Switch focus to/from the sidebar                                                                            |                                                     |
 | `:AvanteRefresh`                   | Refresh all Avante windows                                                                                  |                                                     |
 | `:AvanteStop`                      | Stop the current AI request                                                                                 |                                                     |
-| `:AvanteSwitchProvider [--save]`   | Switch AI provider; `--save` restores it on startup, overriding the configured default                                           |                                                     |
+| `:AvanteSwitchProvider [--save] [--acp {true|false}] [filter]`   | Switch AI provider; `--save` persists the choice, `--acp true` (default) includes ACP providers; `--acp false` hides them, and `filter` prefills the selector input                                           |                                                     |
 | `:AvanteShowRepoMap`               | Show repo map for project's structure                                                                       |                                                     |
 | `:AvanteToggle`                    | Toggle the Avante sidebar                                                                                   |                                                     |
 | `:AvanteModels`                    | Show model list                                                                                             |                                                     |
@@ -1177,6 +1180,20 @@ Avante provides a RAG service, which is a tool for obtaining the required contex
 uv venv
 source .venv/bin/activate
 uv pip install --editable py/rag-service
+```
+
+### Nix Docker image
+
+On Linux, the flake provides a Docker image with Neovim, this checkout of Avante
+(including its native libraries and required plugins), and the RAG service:
+
+```sh
+nix build .#dockerImage
+docker load -i result
+docker run --rm -it \
+  -e MISTRAL_API_KEY \    # replace with the provider secret you intend to use
+  -v "$PWD:/workspace" \  # to keep editor state between runs
+  avante-nvim:latest
 ```
 
 ### RAG configuration
@@ -1308,11 +1325,13 @@ Avante's tools include some web search engines, currently support:
 - Google's [Programmable Search Engine](https://developers.google.com/custom-search/v1/overview)
 - [Kagi](https://help.kagi.com/kagi/api/search.html)
 - [Brave Search](https://api-dashboard.search.brave.com/app/documentation/web-search/get-started)
+- [Firecrawl](https://docs.firecrawl.dev/features/search?utm_source=avante&utm_medium=integration)
+- [Serply](https://serply.io)
 - [SearXNG](https://searxng.github.io/searxng/)
 
 Each engine is exposed as its own tool (`web_search_tavily`, `web_search_serpapi`,
 `web_search_searchapi`, `web_search_google`, `web_search_kagi`, `web_search_brave`,
-and `web_search_searxng`). Shared settings remain under `web_search_engine`:
+`web_search_firecrawl`, `web_search_serply`, and `web_search_searxng`). Shared settings remain under `web_search_engine`:
 
 ```lua
 web_search_engine = {
@@ -1330,6 +1349,8 @@ Environment variables required for providers:
   - `GOOGLE_SEARCH_ENGINE_ID` as the [search engine](https://programmablesearchengine.google.com) ID
 - Kagi: `KAGI_API_KEY` as the [API Token](https://kagi.com/settings?p=api)
 - Brave Search: `BRAVE_API_KEY` as the [API key](https://api-dashboard.search.brave.com/app/keys)
+- Firecrawl: `FIRECRAWL_API_KEY` as the [API key](https://www.firecrawl.dev/app/api-keys?utm_source=avante&utm_medium=integration)
+- Serply: `SERPLY_API_KEY` as the [API key](https://serply.io)
 - SearXNG: `SEARXNG_API_URL` as the [API URL](https://docs.searxng.org/dev/search_api.html)
 
 ## Custom prompts

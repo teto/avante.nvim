@@ -16,6 +16,7 @@
 --- `e`             Edit user request
 --- `<Tab>`         Switch windows
 --- `<S-Tab>`       Reverse switch windows
+--- `i`             Focus input
 --- `d`             Remove file
 --- `@`             Add file
 --- `q`             Close sidebar
@@ -134,6 +135,8 @@ local SIDEBAR_CONTAINERS = {
 ---@field old_result_lines avante.ui.Line[]
 ---@field token_count integer | nil
 ---@field acp_client avante.acp.ACPClient | nil
+---@field acp_client_generation integer Bumped whenever the ACP client is dropped, so a connection still in flight is discarded
+---@field pending_acp_import avante.PendingAcpImport | nil
 ---@field post_render? fun(sidebar: avante.Sidebar)
 ---@field permission_handler fun(id: string) | nil
 ---@field permission_button_options ({ id: string, icon: string|nil, name: string }[]) | nil
@@ -145,6 +148,12 @@ local SIDEBAR_CONTAINERS = {
 ---@field is_in_full_view boolean
 local Sidebar = {}
 Sidebar.__index = Sidebar
+
+---@class avante.PendingAcpImport
+---@field session_id string
+---@field filename string The chat the session is imported into
+---@field created boolean Whether the chat was created for this import
+---@field previous_filename? string Chat to return to if a newly created chat's session can't be loaded
 
 ---@param acp_client avante.acp.ACPClient | nil
 ---@param provider avante.ProviderName
@@ -179,6 +188,8 @@ function Sidebar:new(id)
     containers = {},
     file_selector = FileSelector:new(id),
     is_generating = false,
+    acp_client_generation = 0,
+    pending_acp_import = nil,
     chat_history = nil,
     current_state = nil,
     state_timer = nil,
@@ -280,7 +291,13 @@ function Sidebar:open(opts)
   end
 
   local acp_provider = Config.acp_providers[Config.provider]
-  if acp_provider then self:handle_submit("") end
+  if acp_provider and (not opts.question or opts.question == "") then
+    -- When opening a new chat, drop the previous chat's session id before
+    -- preconnecting, otherwise session/load replays the old conversation into
+    -- the new chat (new_chat() only runs after open() returns).
+    if opts.new_chat and self.chat_history then self.chat_history.acp_session_id = nil end
+    self:handle_submit("")
+  end
 
   return self
 end
@@ -1110,19 +1127,21 @@ function Sidebar:render_header(winid, bufnr, header_text, hl, reverse_hl, opts)
   end
 
   if Config.windows.sidebar_header.rounded then
-    header_text = format_segment(Utils.icon("", "『"), reverse_hl)
-      .. format_segment(header_text, hl)
-      .. format_segment(Utils.icon("", "』"), reverse_hl)
+    if header_text ~= "" then
+      header_text = format_segment(Utils.icon("", "『"), reverse_hl)
+        .. format_segment(header_text, hl)
+        .. format_segment(Utils.icon("", "』"), reverse_hl)
+    end
 
     if model_name and model_name ~= "" then
       header_text = header_text
-        .. " "
+        .. (header_text ~= "" and " " or "")
         .. format_segment(Utils.icon("", "『"), reverse_hl)
         .. format_segment(model_name, hl)
         .. format_segment(Utils.icon("", "』"), reverse_hl)
     end
   else
-    header_text = format_segment(" " .. header_text .. " ", hl)
+    if header_text ~= "" then header_text = format_segment(" " .. header_text .. " ", hl) end
     if model_name and model_name ~= "" then
       header_text = header_text .. format_segment(" " .. model_name .. " ", hl)
     end
@@ -1145,11 +1164,10 @@ end
 --- @see render_header
 function Sidebar:render_result()
   if not Utils.is_valid_container(self.containers.result) then return end
-  local header_text = Utils.icon("󰭻 ") .. "Avante"
   self:render_header(
     self.containers.result.winid,
     self.containers.result.bufnr,
-    header_text,
+    "",
     Highlights.TITLE,
     Highlights.REVERSED_TITLE,
     { include_model = Config.windows.sidebar_header.include_model }
@@ -1623,7 +1641,13 @@ function Sidebar:on_mount(opts)
         if Utils.is_valid_container(self.containers.input, true) then
           api.nvim_set_current_win(self.containers.input.winid)
           vim.defer_fn(function()
-            if Config.windows.ask.start_insert then vim.cmd("noautocmd startinsert!") end
+            if
+              Config.windows.ask.start_insert
+              and Utils.is_valid_container(self.containers.input, true)
+              and api.nvim_get_current_win() == self.containers.input.winid
+            then
+              vim.cmd("noautocmd startinsert!")
+            end
           end, 300)
         end
       end
@@ -1742,7 +1766,7 @@ function Sidebar:render_logo()
   local max_width = 30
   --- get editor width
   local editor_width = vim.api.nvim_win_get_width(self.containers.result.winid)
-  local padding = math.floor((editor_width - max_width) / 2)
+  local padding = math.max(0, math.floor((editor_width - max_width) / 2))
   Utils.unlock_buf(self.containers.result.bufnr)
   for i, line in ipairs(logo_lines) do
     --- center logo
@@ -2386,7 +2410,8 @@ end
 
 function Sidebar:new_chat(args, cb)
   local history = Path.history.new(self.code.bufnr)
-  Path.history.save(self.code.bufnr, history)
+  -- Only point at the new file; it is written once the chat has something to save
+  Path.history.save_latest_filename(self.code.bufnr, history.filename)
   self:reload_chat_history()
   self.current_state = nil
   self.expanded_message_uuids = {}
@@ -2399,6 +2424,90 @@ function Sidebar:new_chat(args, cb)
   end)
   if cb then cb(args) end
   vim.schedule(function() self:create_todos_container() end)
+end
+
+---Stop the ACP client so the next request starts a fresh agent process.
+---A connection still in flight is discarded when it completes.
+function Sidebar:stop_acp_client()
+  self.acp_client_generation = self.acp_client_generation + 1
+  local client = self.acp_client
+  self.acp_client = nil
+  if client then pcall(client.stop, client) end
+end
+
+---Show the latest chat history and reconnect the ACP agent for it
+function Sidebar:switch_to_history_and_reconnect()
+  self.current_state = nil
+  self.expanded_message_uuids = {}
+  self.tool_message_positions = {}
+  self.current_tool_use_extmark_id = nil
+  self:update_content_with_history()
+  self:create_todos_container()
+  self:initialize_token_count()
+  if Config.acp_providers[Config.provider] then self:handle_submit("") end
+end
+
+---@param import avante.PendingAcpImport
+---@param session_id string
+---@param messages avante.HistoryMessage[]
+function Sidebar:finish_acp_import(import, session_id, messages)
+  if self.pending_acp_import ~= import then return end
+  self.pending_acp_import = nil
+
+  local chat_history = self.chat_history
+  if not chat_history or chat_history.filename ~= import.filename or chat_history.acp_session_id ~= session_id then
+    -- Another chat was opened while the session loaded: the client now holds the wrong session
+    self:stop_acp_client()
+    self:discard_acp_import_chat(import)
+    return
+  end
+
+  if #messages == 0 then
+    if not import.created then
+      Utils.warn("The agent returned no conversation for this session; kept the chat as it was")
+    end
+    return
+  end
+
+  -- The agent's copy of the session is the source of truth, so re-importing picks up
+  -- anything added outside avante
+  chat_history.messages = messages
+  chat_history.entries = {}
+  chat_history.todos = {}
+  chat_history.memory = nil
+  chat_history.tokens_usage = nil
+  Path.history.save(self.code.bufnr, chat_history)
+
+  if not self:is_open() then return end
+  self:update_content_with_history()
+  self:create_todos_container()
+  self:initialize_token_count()
+end
+
+---@param import avante.PendingAcpImport
+---@param err avante.acp.ACPError
+function Sidebar:fail_acp_import(import, err)
+  if self.pending_acp_import ~= import then return end
+  self.pending_acp_import = nil
+  Utils.error("Couldn't resume the ACP session: " .. ((err and err.message) or "unknown error"))
+  self:stop_acp_client()
+  if not import.created then return end
+
+  local showing_import = self.chat_history ~= nil and self.chat_history.filename == import.filename
+  self:discard_acp_import_chat(import)
+  if not showing_import then return end
+  if import.previous_filename then Path.history.save_latest_filename(self.code.bufnr, import.previous_filename) end
+  if self:is_open() then self:switch_to_history_and_reconnect() end
+end
+
+---Delete the chat an import created, as long as nothing was added to it
+---@param import avante.PendingAcpImport
+function Sidebar:discard_acp_import_chat(import)
+  if not import.created then return end
+  local ok, history = pcall(Path.history.load, self.code.bufnr, import.filename)
+  if ok and history and #History.get_history_messages(history) == 0 then
+    Path.history.delete(self.code.bufnr, import.filename)
+  end
 end
 
 local debounced_save_history = Utils.debounce(
@@ -2736,35 +2845,8 @@ function Sidebar:get_generate_prompts_options(request, cb)
 
   local LLMTools = require("avante.llm_tools")
   local tools = vim.deepcopy(LLMTools.get_tools(request, history_messages))
-  table.insert(tools, {
-    name = "add_file_to_context",
-    description = "Add a file to the context",
-    ---@type AvanteLLMToolFunc<{ rel_path: string }>
-    func = function(input)
-      self.file_selector:add_selected_file(input.rel_path)
-      return "Added file to context", nil
-    end,
-    param = {
-      type = "table",
-      fields = { { name = "rel_path", description = "Relative path to the file", type = "string" } },
-    },
-    returns = {},
-  })
-
-  table.insert(tools, {
-    name = "remove_file_from_context",
-    description = "Remove a file from the context",
-    ---@type AvanteLLMToolFunc<{ rel_path: string }>
-    func = function(input)
-      self.file_selector:remove_selected_file(input.rel_path)
-      return "Removed file from context", nil
-    end,
-    param = {
-      type = "table",
-      fields = { { name = "rel_path", description = "Relative path to the file", type = "string" } },
-    },
-    returns = {},
-  })
+  local Context = require("avante.llm_tools.context")
+  vim.list_extend(tools, { Context.add_file_to_context, Context.remove_file_from_context })
 
   local selected_filepaths = self.file_selector.selected_filepaths or {}
 
@@ -2817,7 +2899,7 @@ function Sidebar:handle_submit(request)
   if Config.prompt_logger.enabled then PromptLogger.log_prompt(request) end
 
   if self.is_generating then
-    self:add_history_messages({ History.Message:new("user", request) })
+    if request ~= "" then self:add_history_messages({ History.Message:new("user", request) }) end
     return
   end
 
@@ -3000,6 +3082,14 @@ function Sidebar:handle_submit(request)
   end
 
   self:get_generate_prompts_options(request, function(generate_prompts_options)
+    -- Captured so callbacks that arrive after a chat switch still update the chat they belong to
+    local chat_history = self.chat_history --[[@as avante.ChatHistory]]
+    local acp_client_generation = self.acp_client_generation
+    local acp_import = self.pending_acp_import
+    if not (request == "" and acp_import and acp_import.session_id == chat_history.acp_session_id) then
+      acp_import = nil
+    end
+
     ---@type AvanteLLMStreamOptions
     ---@diagnostic disable-next-line: assign-type-mismatch
     local stream_options = vim.tbl_deep_extend("force", generate_prompts_options, {
@@ -3010,12 +3100,24 @@ function Sidebar:handle_submit(request)
       on_messages_add = on_messages_add,
       on_state_change = on_state_change,
       acp_client = self.acp_client,
-      on_save_acp_client = function(client) self.acp_client = client end,
-      acp_session_id = self.chat_history.acp_session_id,
-      on_save_acp_session_id = function(session_id)
-        self.chat_history.acp_session_id = session_id
-        Path.history.save(self.code.bufnr, self.chat_history)
+      on_save_acp_client = function(client)
+        if self.acp_client_generation ~= acp_client_generation then
+          pcall(client.stop, client)
+          return false
+        end
+        self.acp_client = client
+        return true
       end,
+      on_acp_config_change = vim.schedule_wrap(function() self:render_result() end),
+      acp_session_id = chat_history.acp_session_id,
+      acp_session_cwd = chat_history.acp_session_cwd,
+      on_save_acp_session_id = function(session_id)
+        chat_history.acp_session_id = session_id
+        Path.history.save(self.code.bufnr, chat_history)
+      end,
+      on_acp_session_replay = acp_import
+        and function(session_id, messages) self:finish_acp_import(acp_import, session_id, messages) end,
+      on_acp_session_load_error = acp_import and function(_, err) self:fail_acp_import(acp_import, err) end,
       set_tool_use_store = set_tool_use_store,
       get_history_messages = function(opts) return self:get_history_messages_for_api(opts) end,
       get_todos = function()
@@ -3055,7 +3157,10 @@ function Sidebar:handle_submit(request)
 
     stream_options.on_memory_summarize = on_memory_summarize
 
-    if request ~= "" then on_state_change("generating") end
+    if request ~= "" then
+      self.is_generating = true
+      on_state_change("generating")
+    end
     Llm.stream(stream_options)
   end)
 end
@@ -3285,6 +3390,7 @@ function Sidebar:render(opts)
 
   self.containers.result:map("n", Config.mappings.sidebar.close, function() self:shutdown() end)
   self.containers.result:map("n", Config.mappings.sidebar.toggle_code_window, function() self:toggle_code_window() end)
+  self.containers.result:map("n", Config.mappings.sidebar.focus_input, function() self:focus_input() end)
 
   self:create_input_container()
 
@@ -3312,14 +3418,14 @@ function Sidebar:render(opts)
 
   self:setup_colors()
 
+  -- Load history before open() returns and the API submits the initial question.
+  self:update_content_with_history()
   if opts.sidebar_post_render then
     self.post_render = opts.sidebar_post_render
     vim.defer_fn(function()
       opts.sidebar_post_render(self)
-      self:update_content_with_history()
+      self:update_content("")
     end, 100)
-  else
-    self:update_content_with_history()
   end
 
   api.nvim_create_autocmd("User", {

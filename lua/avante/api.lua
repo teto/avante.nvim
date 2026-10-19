@@ -123,15 +123,17 @@ end
 ---@field project_root? string optional project root
 ---@field show_logo? boolean whether to show the logo
 
-function M.full_view_ask()
-  M.ask({
+---Full view makes avante look like your typical terminal harness
+---@param opts? AskOptions
+function M.full_view_ask(opts)
+  M.ask(vim.tbl_extend("force", {
     show_logo = true,
     sidebar_post_render = function(sidebar)
       sidebar:toggle_code_window()
       -- vim.wo[sidebar.containers.result.winid].number = true
       -- vim.wo[sidebar.containers.result.winid].relativenumber = true
     end,
-  })
+  }, opts or {}))
 end
 
 M.zen_mode = M.full_view_ask
@@ -272,13 +274,20 @@ function M.select_acp_model() require("avante.acp_config_selector").open_model()
 
 function M.select_acp_mode() require("avante.acp_config_selector").open_mode() end
 
+---List the current ACP agent's sessions for this project, including ones started outside avante
+---(e.g. in the agent's CLI), and resume the selected one in the sidebar
+function M.select_acp_session() require("avante.acp_session_selector").open() end
+
 function M.select_history()
   local buf = vim.api.nvim_get_current_buf()
   require("avante.history_selector").open(buf, function(filename)
     vim.api.nvim_buf_call(buf, function()
-      if not require("avante").is_sidebar_open() then require("avante").open_sidebar({}) end
+      -- Switch the latest history before opening the sidebar, otherwise
+      -- Sidebar:open() preconnects the ACP agent with the previous chat's
+      -- session id instead of the selected one.
       local Path = require("avante.path")
       Path.history.save_latest_filename(buf, filename)
+      if not require("avante").is_sidebar_open() then require("avante").open_sidebar({}) end
       local sidebar = require("avante").get()
       sidebar:update_content_with_history()
       sidebar:create_todos_container()

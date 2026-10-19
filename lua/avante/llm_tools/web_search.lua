@@ -16,6 +16,8 @@
 --- - Google: `GOOGLE_SEARCH_API_KEY` and `GOOGLE_SEARCH_ENGINE_ID`
 --- - Kagi: `KAGI_API_KEY`
 --- - Brave Search: `BRAVE_API_KEY`
+--- - Firecrawl: `FIRECRAWL_API_KEY`
+--- - Serply: `SERPLY_API_KEY`
 --- - SearXNG: `SEARXNG_API_URL`
 ---@brief ]]
 
@@ -29,6 +31,8 @@ local Utils = require("avante.utils")
 ---| '"google"'
 ---| '"kagi"'
 ---| '"brave"'
+---| '"firecrawl"'
+---| '"serply"'
 ---| '"searxng"'
 
 ---@alias WebSearchResponseFormatter fun(body: table): (string, string?)
@@ -74,9 +78,8 @@ local function format_response(resp, formatter) return formatter(vim.json.decode
 ---@param formatter WebSearchResponseFormatter
 local function request(method, url, request_opts, opts, formatter)
   if Config.web_search_engine.proxy then return nil, "web_search_engine.proxy is not supported by vim.net" end
-  --- TODO: Remove this suppression when the vendored Neovim 0.12 runtime annotations include the method overload.
-  ---@diagnostic disable-next-line: redundant-parameter, param-type-mismatch
-  vim.net.request(method, url, request_opts, function(err, resp)
+  -- vim.net.request calls back from a fast event; on_complete may call nvim APIs, so leave it first.
+  local on_response = vim.schedule_wrap(function(err, resp)
     if err then
       opts.on_complete(nil, err)
       return
@@ -85,6 +88,9 @@ local function request(method, url, request_opts, opts, formatter)
     local result, format_err = format_response(resp, formatter)
     opts.on_complete(result, format_err)
   end)
+  --- TODO: Remove this suppression when the vendored Neovim 0.12 runtime annotations include the method overload.
+  ---@diagnostic disable-next-line: redundant-parameter, param-type-mismatch
+  vim.net.request(method, url, request_opts, on_response)
   return nil, nil
 end
 
@@ -310,6 +316,90 @@ local function web_search_brave_func(input, opts)
 end
 
 ---@type AvanteLLMToolFunc<{ query: string }>
+---Expects FIRECRAWL_API_KEY in environment
+local function web_search_firecrawl_func(input, opts)
+  log_search("firecrawl", input, opts)
+  local api_key, api_key_err = get_api_key("FIRECRAWL_API_KEY")
+  if not api_key then return nil, api_key_err end
+  return request(
+    "POST",
+    "https://api.firecrawl.dev/v2/search",
+    {
+      headers = {
+        ["Content-Type"] = "application/json",
+        ["Authorization"] = "Bearer " .. api_key,
+      },
+      body = vim.json.encode({
+        query = input.query,
+        limit = 10,
+        sources = { "web" },
+        -- identifies avante as the caller in Firecrawl usage stats
+        origin = "avante",
+      }),
+    },
+    opts,
+    function(body)
+      if body.data == nil or body.data.web == nil then return "", nil end
+      local results = vim
+        .iter(body.data.web)
+        :map(
+          function(result)
+            return {
+              title = result.title,
+              url = result.url,
+              snippet = result.description,
+            }
+          end
+        )
+        :totable()
+      return vim.json.encode(results), nil
+    end
+  )
+end
+
+---@type AvanteLLMToolFunc<{ query: string }>
+---Expects SERPLY_API_KEY in environment
+local function web_search_serply_func(input, opts)
+  log_search("serply", input, opts)
+  local api_key, api_key_err = get_api_key("SERPLY_API_KEY")
+  if not api_key then return nil, api_key_err end
+  local query = encode_query({ q = input.query, num = "10" })
+  return request(
+    "GET",
+    "https://api.serply.io/v1/search?" .. query,
+    {
+      headers = {
+        ["Content-Type"] = "application/json",
+        ["X-Api-Key"] = api_key,
+        -- identifies avante as the caller in Serply usage stats
+        ["User-Agent"] = "avante",
+      },
+    },
+    opts,
+    function(body)
+      if body.results == nil then return "", nil end
+      local results = vim
+        .iter(body.results)
+        -- skip the occasional result whose link is not a page URL
+        :filter(
+          function(result) return type(result.link) == "string" and result.link:match("^https?://") ~= nil end
+        )
+        :map(
+          function(result)
+            return {
+              title = result.title,
+              url = result.link,
+              snippet = result.description,
+            }
+          end
+        )
+        :totable()
+      return vim.json.encode(results), nil
+    end
+  )
+end
+
+---@type AvanteLLMToolFunc<{ query: string }>
 local function web_search_searxng_func(input, opts)
   log_search("searxng", input, opts)
   local api_url = Utils.environment.parse("SEARXNG_API_URL")
@@ -372,6 +462,8 @@ M.web_search_searchapi = web_search_tool("searchapi", web_search_searchapi_func)
 M.web_search_google = web_search_tool("google", web_search_google_func)
 M.web_search_kagi = web_search_tool("kagi", web_search_kagi_func)
 M.web_search_brave = web_search_tool("brave", web_search_brave_func)
+M.web_search_firecrawl = web_search_tool("firecrawl", web_search_firecrawl_func)
+M.web_search_serply = web_search_tool("serply", web_search_serply_func)
 M.web_search_searxng = web_search_tool("searxng", web_search_searxng_func)
 
 return M

@@ -18,7 +18,16 @@
 --->
 ---         :Avante rag query How does authentication work?
 ---<
----         Use :Avante --help or :Avante rag --help for generated help.
+--- :Avante acp modes
+---         Switch ACP mode.
+--- :Avante acp sessions
+---         List the current ACP agent's sessions for this project, including
+---         ones started outside avante (e.g. in the agent's CLI), and resume
+---         the selected one in the sidebar. Requires an ACP provider that
+---         supports `session/list` and `session/load`.
+---
+---         Use :Avante --help, :Avante rag --help or :Avante acp --help for
+---         generated help.
 ---
 ---                                                     *:AvanteAsk*
 --- :AvanteAsk [question] [position=left|right|top|bottom] [ask=true|false]
@@ -64,10 +73,11 @@
 ---         Stop the current AI request.
 ---
 ---                                                     *:AvanteSwitchProvider*
---- :AvanteSwitchProvider [--save]
+--- :AvanteSwitchProvider [--save] [--acp {true|false}] [filter]
 ---         Switch AI provider. Pass `--save` to restore the choice on startup,
 ---         overriding the configured default provider. Without it, the switch
----         only affects the current session.
+---         only affects the current session. ACP providers are included by default; pass `--acp false` to hide them.
+---         The optional filter prefills the selector input without removing providers.
 ---
 ---                                                     *:AvanteSwitchSelectorProvider*
 --- :AvanteSwitchSelectorProvider {provider}
@@ -96,7 +106,7 @@
 ---
 ---                                                     *:AvanteACPModes*
 --- :AvanteACPModes
----         Switch ACP mode.
+---         Deprecated alias for :Avante acp modes. Shows a deprecation warning.
 ---
 ---@brief ]]
 
@@ -169,6 +179,15 @@ function M.setup()
   local query = actions:add_parser({ name = "query", help = "Query the current project; omit text to prompt" })
   query:add_parameter({ name = "text", nargs = cmdparse.REMAINDER, required = false, help = "Query text" })
   query:set_execute(function(data) query_rag(data.namespace.text or "") end)
+
+  local acp = subparsers:add_parser({ name = "acp", help = "Work with the current ACP agent" })
+  local acp_actions = acp:add_subparsers({ destination = "acp_command" })
+  acp_actions
+    :add_parser({ name = "modes", help = "Switch ACP mode" })
+    :set_execute(function() require("avante.api").select_acp_mode() end)
+  acp_actions
+    :add_parser({ name = "sessions", help = "List the agent's sessions for this project and resume one" })
+    :set_execute(function() require("avante.api").select_acp_session() end)
 
   local execute = cmdparse.make_parser_triager(function() return parser end)
   -- cmdparse annotates command options here, but its callback receives command arguments.

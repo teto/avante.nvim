@@ -82,7 +82,7 @@ function M:list_models(timeout)
     headers["Authorization"] = "Bearer " .. api_key
   end
 
-  local curl = require("plenary.curl")
+  local curl = require("avante.utils.curl")
   local response = curl.get(Utils.url_join(provider_conf.endpoint, "/models"), {
     headers = Utils.tbl_override(headers, self.extra_headers),
     proxy = provider_conf.proxy,
@@ -137,21 +137,33 @@ function M.get_user_message(opts)
 end
 
 function M.is_reasoning_model(model)
-  return model
-    and (string.match(model, "^o%d+") ~= nil or (string.match(model, "gpt%-5") ~= nil and model ~= "gpt-5-chat"))
+  return model ~= nil
+    and (
+      string.match(model, "^o%d+") ~= nil
+      or (string.match(model, "^gpt%-[56]") ~= nil and string.match(model, "%-chat") == nil)
+    )
 end
 
 function M.set_allowed_params(provider_conf, request_body)
   local use_response_api = Providers.resolve_use_response_api(provider_conf, nil)
-  if M.is_reasoning_model(provider_conf.model) then
-    -- Reasoning models have specific parameter requirements
-    request_body.temperature = 1
-    -- Response API doesn't support temperature for reasoning models
-    if use_response_api then request_body.temperature = nil end
-  else
+  local is_reasoning_model = M.is_reasoning_model(provider_conf.model)
+  local reasoning_effort = request_body.reasoning_effort
+  if reasoning_effort == nil and type(request_body.reasoning) == "table" then
+    reasoning_effort = request_body.reasoning.effort
+  end
+  local reasoning_enabled = is_reasoning_model and reasoning_effort ~= "none"
+
+  if reasoning_enabled then
+    -- Reasoning rejects sampling controls and Chat-style log probabilities.
+    for _, param in ipairs({ "temperature", "top_p", "top_logprobs", "logprobs" }) do
+      request_body[param] = nil
+    end
+  elseif not is_reasoning_model then
+    -- Do not send reasoning-only fields to non-reasoning models.
     request_body.reasoning_effort = nil
     request_body.reasoning = nil
   end
+
   -- If max_tokens is set in config, unset max_completion_tokens
   if request_body.max_tokens then request_body.max_completion_tokens = nil end
 
@@ -168,12 +180,10 @@ function M.set_allowed_params(provider_conf, request_body)
     -- Response API doesn't support some parameters
     -- Remove unsupported parameters for Response API
     local unsupported_params = {
-      "top_p",
       "frequency_penalty",
       "presence_penalty",
       "logit_bias",
       "logprobs",
-      "top_logprobs",
       "n",
     }
     for _, param in ipairs(unsupported_params) do
@@ -203,7 +213,11 @@ function M:parse_messages(opts)
 
   vim.iter(opts.messages):each(function(msg)
     if type(msg.content) == "string" then
-      table.insert(messages, { role = self.role_map[msg.role], content = msg.content })
+      table.insert(messages, {
+        role = self.role_map[msg.role],
+        content = msg.content,
+        phase = use_response_api and msg.role == "assistant" and msg.phase or nil,
+      })
     elseif type(msg.content) == "table" then
       -- Check if this is a reasoning message (object with type "reasoning")
       if msg.content.type == "reasoning" then
@@ -375,6 +389,8 @@ function M:parse_messages(opts)
     messages[#messages].content = message_content
   end
 
+  if use_response_api then return messages end
+
   local final_messages = {}
   local prev_role = nil
   local prev_type = nil
@@ -428,6 +444,7 @@ function M:add_text_message(ctx, text, state, opts)
     uuid = ctx.content_uuid,
     original_content = ctx.content,
   })
+  msg.message.phase = ctx.response_phase
   ctx.content_uuid = msg.uuid
   local msgs = { msg }
   local xml_content = ctx.content
@@ -584,8 +601,8 @@ function M.transform_openai_usage(usage)
   if usage == vim.NIL then return nil end
   ---@type avante.LLMTokenUsage
   local res = {
-    prompt_tokens = usage.prompt_tokens,
-    completion_tokens = usage.completion_tokens,
+    prompt_tokens = usage.prompt_tokens or rawget(usage, "input_tokens"),
+    completion_tokens = usage.completion_tokens or rawget(usage, "output_tokens"),
     -- total_tokens is the sum of both
   }
   return res
@@ -654,12 +671,9 @@ function M:parse_response(ctx, data_stream, _, opts)
           input_json = "",
         }
         self:add_tool_use_message(ctx, ctx.tool_use_map[tool_key], "generating", opts)
-      elseif jsn.item and jsn.item.type == "reasoning" then
-        -- Add reasoning item to history
-        self:add_reasoning_message(ctx, jsn.item, opts)
       end
     elseif jsn.type == "response.output_item.done" then
-      -- Output item done (finalize function call)
+      -- Output item done (finalize function call or preserve final reasoning state)
       if jsn.item and jsn.item.type == "function_call" then
         local tool_key = tostring(jsn.output_index or 0)
         if ctx.tool_use_map and ctx.tool_use_map[tool_key] then
@@ -667,6 +681,10 @@ function M:parse_response(ctx, data_stream, _, opts)
           if jsn.item.arguments then tool_use.input_json = jsn.item.arguments end
           self:add_tool_use_message(ctx, tool_use, "generated", opts)
         end
+      elseif jsn.item and jsn.item.type == "reasoning" then
+        self:add_reasoning_message(ctx, jsn.item, opts)
+      elseif jsn.item and jsn.item.type == "message" then
+        ctx.response_phase = jsn.item.phase
       end
     elseif jsn.type == "response.completed" or jsn.type == "response.done" then
       -- Response completed - save response.id for future requests

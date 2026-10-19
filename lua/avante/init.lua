@@ -1,4 +1,5 @@
 ---@mod avante-nvim avante.nvim
+---@tag avante
 ---
 ---@brief [[
 --- avante.nvim is a Neovim plugin designed to emulate the behaviour of the Cursor
@@ -30,6 +31,8 @@
 --- Mandatory dependencies are:
 --- - 'nvim-lua/plenary.nvim'
 --- - 'MunifTanjim/nui.nvim'.
+--- - "ColinKennedy/mega.cmdparse"
+--- - "ColinKennedy/mega.logging" (as dependency of cmdparse)
 ---
 --- Optional dependencies are:
 --- - 'MeanderingProgrammer/render-markdown.nvim'
@@ -53,7 +56,20 @@
 ---Therefore, Avante’s Zen Mode was born! It looks like a Vibe Coding Agent CLI but it is completely Neovim underneath. So you can use your muscle-memory Vim operations and those rich and mature Neovim plugins on it. At the same time, by leveraging [ACP](https://github.com/yetone/avante.nvim#acp-support) it has all capabilities of claude code / gemini-cli / codex! Why not enjoy both?
 ---Now all you need to do is alias this command to avante; then every time you simply type avante just like using claude code and enter Avante’s Zen Mode!
 ---@brief ]]
----@mod avante
+---@mod avante-events User events
+---@brief [[
+--- Avante emits the following |User| autocommand events:
+---
+--- - AvanteRequestLogin: The provider may prompt for a missing API key.
+--- - AvanteInputSubmitted: project-initialization prompt. `ev.data.request` contains the request string.
+--- - AvanteEditSubmitted: `ev.data.request` contains the request string.
+--- - AvanteLLMEscape: signals cancellation
+--- - AvanteViewBufferUpdated: fires after the sidebar result buffer is updated
+---   when a generation stops without an error, including cancellation.
+--- - AvanteConflictDetected: a parsed diff buffer contains conflict markers.
+--- - AvanteConflictResolved: a parsed diff buffer contains no conflict markers.
+---@brief ]]
+---@mod avante-init
 
 local api = vim.api
 
@@ -97,11 +113,25 @@ end
 ---Cleanup all registered ACP clients
 function M.cleanup_all_acp_clients()
   Utils.debug("Cleaning up all ACP clients...")
+  local pending = {}
   for client_id, client in pairs(M.acp_clients) do
     if client and client.stop then
       Utils.debug("Stopping ACP client: " .. client_id)
-      pcall(function() client:stop() end)
+      pending[client] = true
+      local ok = pcall(function()
+        client:stop(function() pending[client] = nil end)
+      end)
+      if not ok then
+        pending[client] = nil
+        if client.force_stop then pcall(client.force_stop, client) end
+      end
     end
+  end
+
+  -- Give session/close responses a bounded chance to arrive before Vim tears down the event loop.
+  if next(pending) ~= nil then vim.wait(600, function() return next(pending) == nil end, 10) end
+  for client in pairs(pending) do
+    if client.force_stop then pcall(client.force_stop, client) end
   end
   M.acp_clients = {}
   Utils.debug("All ACP clients cleaned up")
