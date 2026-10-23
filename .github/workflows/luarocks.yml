@@ -1,6 +1,21 @@
 name: Push to luarocks.org
 
 on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to publish (e.g. v0.4.3)
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag to publish
+        required: true
+        type: string
+    secrets:
+      LUAROCKS_API_KEY:
+        required: true
   push:
     tags:
       - '*'
@@ -15,9 +30,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: refs/tags/${{ inputs.tag || github.event.release.tag_name || github.ref_name }}
           fetch-depth: 0 # Required to count the commits
       - name: Get Version
-        run: echo "LUAROCKS_VERSION=$(git describe --abbrev=0 --tags)" >> "$GITHUB_ENV"
+        run: echo "LUAROCKS_VERSION=$(git describe --exact-match --tags)" >> "$GITHUB_ENV"
       - name: LuaRocks Upload
         uses: nvim-neorocks/luarocks-tag-release@v8
         env:
