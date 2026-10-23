@@ -25,6 +25,7 @@ if is_release then
   local git_ref = '$git_ref'
   -- $modrev is "git_ref" stripped of "v" prefix (disallowed in rockspec filename)
   local modrev = '$modrev'
+  version = '$modrev-'.. specrev
   source = {
     url = repo_url .. '/archive/' .. git_ref .. '.zip',
     dir = 'avante.nvim-' .. modrev,
