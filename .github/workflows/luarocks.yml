@@ -41,4 +41,3 @@ jobs:
         with:
           template: avante.nvim-scm-1.rockspec
           version: ${{ env.LUAROCKS_VERSION }}
-          summary: USED_AS_TEMPLATE

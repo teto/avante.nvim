@@ -21,13 +21,13 @@ test_dependencies = { 'busted' }
 
 
 if is_release then
-  -- git_ref is set to a tag if possible, else git revision
-  local git_ref = '$git_ref'
   -- $modrev is "git_ref" stripped of "v" prefix (disallowed in rockspec filename)
+  -- git_ref is set to a tag when the github trigger was "tag", else git revision
   local modrev = '$modrev'
   version = '$modrev-'.. specrev
   source = {
-    url = repo_url .. '/archive/' .. git_ref .. '.zip',
+    -- url contains leading v but archive does not
+    url = repo_url .. '/archive/v' .. modrev .. '.zip',
     dir = 'avante.nvim-' .. modrev,
   }
 else
