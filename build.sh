@@ -66,4 +66,13 @@ fi
 # Get the artifact download URL
 ARTIFACT_URL="$REMOTE_URL/releases/download/$latest_tag/avante_lib-$PLATFORM-$ARCH-$LUA_VERSION.tar.gz"
 
-curl -L "$ARTIFACT_URL" | tar -zxv -C "$TARGET_DIR"
+archive="$(mktemp)"
+trap 'rm -f "$archive"' EXIT
+
+if ! curl -fL "$ARTIFACT_URL" -o "$archive"; then
+  echo "Failed to download prebuilt libraries for $latest_tag. Check that the passed version is correct and has a release for $PLATFORM-$ARCH-$LUA_VERSION." >&2
+  echo "Download URL: $ARTIFACT_URL" >&2
+  exit 1
+fi
+
+tar -zxvf "$archive" -C "$TARGET_DIR"
